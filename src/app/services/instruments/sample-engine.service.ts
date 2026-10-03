@@ -2,12 +2,16 @@ import { Injectable, inject, signal } from '@angular/core';
 import { MasterMixerService } from '../master-mixer.service';
 import { SAMPLE_SETS, getDrumSamplePath, sampleUrl, samplesByDistance } from '../../data/sample-manifests';
 import { noteToMidi } from '../../utils/music-theory';
+import { driveCurve } from './poly-synth.service';
 
 const CACHE_NAME = 'loomin-samples-v1';
 /** Furthest a sample is re-pitched to cover a missing note (semitones). */
 const MAX_REPITCH = 7;
-/** Release tail for sustained instruments after the grid note ends. */
-const SUSTAIN_RELEASE = 0.25;
+
+export interface SampleVoiceOptions {
+  /** Soft-clip drive 0–1 (e.g. metal guitar). */
+  drive?: number;
+}
 
 @Injectable({ providedIn: 'root' })
 export class SampleEngineService {
@@ -54,7 +58,7 @@ export class SampleEngineService {
    * sample is decoded yet, so the caller can fall back to the synth instead of playing late or not at all.
    * `duration` is the grid note length; sustained instruments stop there, plucked ones ring out.
    */
-  playNote(note: string, velocity: number, destination: AudioNode, sampleSetName: string, time?: number, duration?: number): boolean {
+  playNote(note: string, velocity: number, destination: AudioNode, sampleSetName: string, time?: number, duration?: number, opts: SampleVoiceOptions = {}): boolean {
     const set = SAMPLE_SETS[sampleSetName];
     if (!set) return false;
     let targetMidi: number;
@@ -69,23 +73,25 @@ export class SampleEngineService {
         continue;
       }
       const start = time ?? this.ctx.currentTime;
-      let stop = start + Math.min(set.releaseSeconds ?? buffer.duration, buffer.duration);
-      if (set.sustained && duration != null) stop = Math.min(stop, start + duration + SUSTAIN_RELEASE);
-      this._playBuffer(buffer, velocity, destination, start, stop, (targetMidi - midi) * 100);
+      const rate = Math.pow(2, (targetMidi - midi) / 12);
+      const ringEnd = start + Math.min(set.releaseSeconds ?? Infinity, buffer.duration / rate);
+      // Preview clicks have no duration: let them ring like a held key
+      const noteEnd = duration != null ? Math.min(start + duration, ringEnd) : ringEnd;
+      this._playBuffer(buffer, velocity, destination, start, noteEnd, ringEnd, set.noteOffRelease, rate, true, opts);
       return true;
     }
     return false;
   }
 
   /** For click-to-preview: waits for the nearest sample to load, then plays it immediately. */
-  async previewNote(note: string, velocity: number, destination: AudioNode, sampleSetName: string): Promise<boolean> {
-    if (this.playNote(note, velocity, destination, sampleSetName)) return true;
+  async previewNote(note: string, velocity: number, destination: AudioNode, sampleSetName: string, opts: SampleVoiceOptions = {}): Promise<boolean> {
+    if (this.playNote(note, velocity, destination, sampleSetName, undefined, undefined, opts)) return true;
     const set = SAMPLE_SETS[sampleSetName];
     if (!set) return false;
     let targetMidi: number;
     try { targetMidi = noteToMidi(note); } catch { return false; }
     await Promise.all(samplesByDistance(set, targetMidi, MAX_REPITCH).slice(0, 2).map(m => this._load(sampleUrl(set, m)!)));
-    return this.playNote(note, velocity, destination, sampleSetName);
+    return this.playNote(note, velocity, destination, sampleSetName, undefined, undefined, opts);
   }
 
   /** Returns false when the drum has no sample or it is not decoded yet (caller should use the synth drum). */
@@ -98,7 +104,8 @@ export class SampleEngineService {
       return false;
     }
     const start = time ?? this.ctx.currentTime;
-    this._playBuffer(buffer, velocity, destination, start, start + buffer.duration, 0);
+    const end = start + buffer.duration;
+    this._playBuffer(buffer, velocity, destination, start, end, end, 0.02, 1, false);
     return true;
   }
 
@@ -118,19 +125,51 @@ export class SampleEngineService {
     await caches.delete(CACHE_NAME);
   }
 
-  private _playBuffer(buffer: AudioBuffer, velocity: number, destination: AudioNode, start: number, stop: number, detuneCents: number): void {
+  /**
+   * Plays a buffer re-pitched by `rate`. Holds until `noteEnd`, then dies away over `release`
+   * (never past `ringEnd`). `velocityTone` darkens soft notes like a real instrument.
+   */
+  private _playBuffer(
+    buffer: AudioBuffer, velocity: number, destination: AudioNode, start: number, noteEnd: number, ringEnd: number,
+    release: number, rate: number, velocityTone: boolean, opts: SampleVoiceOptions = {},
+  ): void {
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
-    source.detune.value = detuneCents;
+    source.playbackRate.value = rate;
 
+    const vel = Math.max(0, Math.min(1, velocity));
+    const level = vel * 0.8;
+    const stop = Math.min(ringEnd, noteEnd + release * 1.5);
     const gain = this.ctx.createGain();
-    const level = Math.max(0, Math.min(1, velocity)) * 0.8;
-    const fade = Math.min(0.05, (stop - start) / 2);
     gain.gain.setValueAtTime(level, start);
-    gain.gain.setValueAtTime(level, stop - fade);
-    gain.gain.linearRampToValueAtTime(0.0001, stop);
+    if (stop > noteEnd + 0.005) {
+      gain.gain.setValueAtTime(level, noteEnd);
+      gain.gain.setTargetAtTime(0, noteEnd, Math.max(release, 0.01) / 4);
+    } else {
+      const fade = Math.min(0.03, (stop - start) / 2);
+      gain.gain.setValueAtTime(level, stop - fade);
+      gain.gain.linearRampToValueAtTime(0.0001, stop);
+    }
 
-    source.connect(gain).connect(destination);
+    let node: AudioNode = source;
+    if (velocityTone) {
+      const tone = this.ctx.createBiquadFilter();
+      tone.type = 'lowpass';
+      tone.frequency.value = 1800 + 18000 * vel * vel;
+      tone.Q.value = 0.5;
+      node = node.connect(tone);
+    }
+    if (opts.drive) {
+      const pre = this.ctx.createGain();
+      pre.gain.value = 1 + opts.drive * 6;
+      const shaper = this.ctx.createWaveShaper();
+      shaper.curve = driveCurve(opts.drive);
+      shaper.oversample = '4x';
+      const post = this.ctx.createGain();
+      post.gain.value = 0.6;
+      node = node.connect(pre).connect(shaper).connect(post);
+    }
+    node.connect(gain).connect(destination);
     source.start(start);
     source.stop(stop);
   }

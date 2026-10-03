@@ -37,4 +37,27 @@ describe('SAMPLE_SETS', () => {
       }
     }
   });
+
+  it('every set says how long it rings after the note ends', () => {
+    for (const set of Object.values(SAMPLE_SETS)) expect(set.noteOffRelease, set.name).toBeGreaterThan(0);
+  });
+});
+
+describe('INSTRUMENT_PRESETS', () => {
+  it('plucked presets carry Karplus–Strong parameters', () => {
+    for (const inst of Object.values(INSTRUMENT_PRESETS)) {
+      if (inst.engine === 'pluck') {
+        expect(inst.pluck, inst.name).toBeDefined();
+        expect(inst.pluck!.decay, inst.name).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('every melodic instrument has both a realistic and a retro voice', () => {
+    for (const inst of Object.values(INSTRUMENT_PRESETS)) {
+      if (inst.name === 'drums') continue;
+      expect(inst.sampleSet, `${inst.name} has no sample set`).toBeDefined();
+      expect(inst.oscType, inst.name).toBeDefined();
+    }
+  });
 });

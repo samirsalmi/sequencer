@@ -11,10 +11,11 @@ export interface SampleSet {
   /** Truncate the playback envelope to this many seconds (cuts excessive tail buildup). */
   releaseSeconds?: number;
   /**
-   * Sustained instruments (bowed strings, winds, brass) stop at the end of the grid note plus a short release.
-   * Plucked / struck instruments (piano, guitar) ring out naturally up to `releaseSeconds`.
+   * Seconds the sound takes to die away after the grid note ends (key / bow / finger released).
+   * Short for bowed and blown instruments, longer for piano and guitar, which keep resonating.
+   * Tie notes in the grid to let them ring longer.
    */
-  sustained?: boolean;
+  noteOffRelease: number;
 }
 
 /** Builds a sample map from the note names used in the filenames. `octaveShift` corrects files whose names are off by octaves. */
@@ -169,6 +170,7 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
     label: 'Acoustic Piano',
     basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/piano/',
     samples: PIANO_SAMPLES,
+    noteOffRelease: 0.7,
     noteRange: rangeOf(PIANO_SAMPLES),
     releaseSeconds: 4.0,
   },
@@ -177,6 +179,7 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
     label: 'Electric Guitar',
     basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/guitar/',
     samples: GUITAR_SAMPLES,
+    noteOffRelease: 0.4,
     noteRange: rangeOf(GUITAR_SAMPLES),
     releaseSeconds: 1.0,
   },
@@ -185,6 +188,7 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
     label: 'Electric Bass',
     basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/bass/',
     samples: BASS_SAMPLES,
+    noteOffRelease: 0.25,
     noteRange: rangeOf(BASS_SAMPLES),
     releaseSeconds: 1.0,
   },
@@ -196,7 +200,7 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
     basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-violin/',
     samples: VIOLIN_SAMPLES,
     noteRange: rangeOf(VIOLIN_SAMPLES),
-    sustained: true,
+    noteOffRelease: 0.25,
   },
   'vsco-cello': {
     name: 'vsco-cello',
@@ -204,7 +208,7 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
     basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-cello/',
     samples: CELLO_SAMPLES,
     noteRange: rangeOf(CELLO_SAMPLES),
-    sustained: true,
+    noteOffRelease: 0.25,
   },
   'vsco-flute': {
     name: 'vsco-flute',
@@ -212,7 +216,7 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
     basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-flute/',
     samples: FLUTE_SAMPLES,
     noteRange: rangeOf(FLUTE_SAMPLES),
-    sustained: true,
+    noteOffRelease: 0.25,
   },
   'vsco-trumpet': {
     name: 'vsco-trumpet',
@@ -220,7 +224,7 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
     basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-trumpet/',
     samples: TRUMPET_SAMPLES,
     noteRange: rangeOf(TRUMPET_SAMPLES),
-    sustained: true,
+    noteOffRelease: 0.25,
   },
   'vsco-horn': {
     name: 'vsco-horn',
@@ -228,13 +232,14 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
     basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-horn/',
     samples: HORN_SAMPLES,
     noteRange: rangeOf(HORN_SAMPLES),
-    sustained: true,
+    noteOffRelease: 0.25,
   },
   'vsco-upright': {
     name: 'vsco-upright',
     label: 'Upright Piano KW',
     basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-upright/',
     samples: UPRIGHT_SAMPLES,
+    noteOffRelease: 0.5,
     noteRange: rangeOf(UPRIGHT_SAMPLES),
     releaseSeconds: 1.5,
   },
@@ -243,6 +248,7 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
     label: 'Karoryfer Emily Guitar',
     basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/karoryfer-guitar/',
     samples: EMILY_SAMPLES,
+    noteOffRelease: 0.4,
     noteRange: rangeOf(EMILY_SAMPLES),
   },
   'bjam-guitar': {
@@ -250,6 +256,7 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
     label: 'BJAM Guitar',
     basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/bjam-guitar/',
     samples: BJAM_SAMPLES,
+    noteOffRelease: 0.35,
     noteRange: rangeOf(BJAM_SAMPLES),
   },
 };

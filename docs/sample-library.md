@@ -23,5 +23,5 @@ matching git blob hashes.
 1. Upload files to the samples repo **without Git LFS**.
 2. In `sample-manifests.ts`, build the map with `buildSamples(fileNotes, toFilename, octaveShift)`. Set `octaveShift`
    if the files' note names don't match their real pitch (check one file, e.g. A4 should be 440 Hz).
-3. Set `sustained: true` for bowed, wind or brass instruments (notes stop at the end of the grid note), or
-   `releaseSeconds` for plucked or struck ones (they ring out).
+3. Set `noteOffRelease`: how long the sound dies away after the grid note ends (about 0.25 s for bowed or blown
+   instruments, 0.4–0.7 s for guitar and piano). `releaseSeconds` caps the total ring time.

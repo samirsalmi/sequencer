@@ -216,6 +216,7 @@ export class AudioService {
       if (trk.delaySend != null) this.mixer.setDelaySend(t, trk.delaySend);
       if (trk.reverbSend != null) this.mixer.setReverbSend(t, trk.reverbSend);
       if (trk.filterCutoff != null) this.mixer.setTrackFilterFreq(t, trk.filterCutoff);
+      if (trk.pan != null) this.mixer.setPan(t, trk.pan);
     }
     this.arpEnabled.set(merged.tracks.map(() => false));
     this.arpPattern.set(merged.tracks.map(() => 'up' as const));
@@ -365,6 +366,19 @@ export class AudioService {
     this._saveCustomTracks(p.name, updatedTracks);
   }
 
+  getPan(trackIndex: number): number {
+    return this.preset()?.tracks[trackIndex]?.pan ?? 0;
+  }
+
+  setTrackPan(trackIndex: number, pan: number): void {
+    this.mixer.setPan(trackIndex, pan);
+    const p = this.preset();
+    if (!p) return;
+    const updatedTracks = p.tracks.map((t, i) => i === trackIndex ? { ...t, pan } : t);
+    this.preset.set({ ...p, tracks: updatedTracks });
+    this._saveCustomTracks(p.name, updatedTracks);
+  }
+
   setDelayTime(value: number): void {
     this.delayTime.set(value);
     this.mixer.setDelayTime(value);
@@ -510,9 +524,6 @@ export class AudioService {
               const inst = track.instrumentPreset ? INSTRUMENT_PRESETS[track.instrumentPreset] : undefined;
               if (inst) {
                 this.polySynth.triggerNote(this.mixer.ctx, freq, channel, inst.oscType, time, vel, dur, prevFreq > 0 ? prevFreq : undefined, portSec, inst);
-                if (inst.filterEnvelope) {
-                  this.mixer.triggerTrackFilterEnvelope(t, inst.filterEnvelope.initialCutoff, inst.filterEnvelope.finalCutoff, inst.filterEnvelope.rampDuration, time);
-                }
               } else if (track.synthType === 'square') {
                 this.bassSynth.triggerNote(this.mixer.ctx, freq, channel, time, vel, dur, prevFreq > 0 ? prevFreq : undefined, portSec);
               } else if (track.synthType === 'distortion') {
@@ -562,9 +573,6 @@ export class AudioService {
               const vel = n.velocity * gainScale;
               if (inst) {
                 this.polySynth.triggerNote(this.mixer.ctx, n.freq, channel, inst.oscType, time, vel, dur, prevFreq > 0 ? prevFreq : undefined, portSec, inst);
-                if (inst.filterEnvelope) {
-                  this.mixer.triggerTrackFilterEnvelope(t, inst.filterEnvelope.initialCutoff, inst.filterEnvelope.finalCutoff, inst.filterEnvelope.rampDuration, time);
-                }
               } else if (track.synthType === 'square') {
                 this.bassSynth.triggerNote(this.mixer.ctx, n.freq, channel, time, vel, dur, prevFreq > 0 ? prevFreq : undefined, portSec);
               } else if (track.synthType === 'distortion') {
@@ -578,13 +586,14 @@ export class AudioService {
             // Plays the real sample; if it isn't available (no sample set, not loaded yet, or a broken file)
             // the synth version plays instead so the track never drops out.
             // The instrument's synth filter sweep is deliberately not applied: recorded samples already have their timbre.
+            const sampleOpts = { drive: INSTRUMENT_PRESETS[track.instrumentPreset ?? '']?.distortion?.amount };
             const doSample = (n: typeof activeRows[0], time: number, dur: number, gainScale = 1) => {
               const vel = n.velocity * gainScale;
               if (n.isDrum) {
                 if (!this.sampleEngine.playDrum(n.noteName, vel, channel, time)) {
                   this.drumEngine.triggerNote(this.mixer.ctx, n.noteName, channel, time, vel);
                 }
-              } else if (!sampleSetName || !this.sampleEngine.playNote(n.noteName, vel, channel, sampleSetName, time, dur)) {
+              } else if (!sampleSetName || !this.sampleEngine.playNote(n.noteName, vel, channel, sampleSetName, time, dur, sampleOpts)) {
                 doSynth(n, time, dur, gainScale);
               }
             };
@@ -692,27 +701,27 @@ export class AudioService {
 
       if (mode === 'sample' || mode === 'layer') {
         const gain = mode === 'layer' ? blend : 1;
-        if (mode === 'layer') this._previewSynth(noteName, synthType, velocity * (1 - blend), instrumentPreset, channel, isDrum, trackIdx);
+        if (mode === 'layer') this._previewSynth(noteName, synthType, velocity * (1 - blend), instrumentPreset, channel, isDrum);
         if (isDrum) {
           if (!this.sampleEngine.playDrum(noteName, velocity * gain, channel)) {
             this.drumEngine.triggerNote(this.mixer.ctx, noteName, channel, undefined, velocity * gain);
           }
         } else if (sampleSetName) {
-          this.sampleEngine.previewNote(noteName, velocity * gain, channel, sampleSetName).then(played => {
-            if (!played) this._previewSynth(noteName, synthType, velocity * gain, instrumentPreset, channel, false, trackIdx);
+          this.sampleEngine.previewNote(noteName, velocity * gain, channel, sampleSetName, { drive: INSTRUMENT_PRESETS[instrumentPreset ?? '']?.distortion?.amount }).then(played => {
+            if (!played) this._previewSynth(noteName, synthType, velocity * gain, instrumentPreset, channel, false);
           });
         } else {
-          this._previewSynth(noteName, synthType, velocity * gain, instrumentPreset, channel, false, trackIdx);
+          this._previewSynth(noteName, synthType, velocity * gain, instrumentPreset, channel, false);
         }
         return;
       }
       // fall through to synth for 'synth' mode
     }
 
-    this._previewSynth(noteName, synthType, velocity, instrumentPreset, channel, isDrum, trackIdx ?? 0);
+    this._previewSynth(noteName, synthType, velocity, instrumentPreset, channel, isDrum);
   }
 
-  private _previewSynth(noteName: string, synthType: string, velocity: number, instrumentPreset: string | undefined, channel: GainNode, isDrum: boolean, trackIdx = 0): void {
+  private _previewSynth(noteName: string, synthType: string, velocity: number, instrumentPreset: string | undefined, channel: GainNode, isDrum: boolean): void {
     const inst = instrumentPreset ? INSTRUMENT_PRESETS[instrumentPreset] : undefined;
     if (isDrum) {
       this.drumEngine.triggerNote(this.mixer.ctx, noteName, channel, undefined, velocity);
@@ -720,9 +729,6 @@ export class AudioService {
       let freq = 0;
       try { freq = midiToFrequency(noteToMidi(noteName)); } catch { return; }
       this.polySynth.triggerNote(this.mixer.ctx, freq, channel, inst.oscType, undefined, velocity, undefined, undefined, undefined, inst);
-      if (inst.filterEnvelope) {
-        this.mixer.triggerTrackFilterEnvelope(trackIdx, inst.filterEnvelope.initialCutoff, inst.filterEnvelope.finalCutoff, inst.filterEnvelope.rampDuration, undefined);
-      }
     } else if (synthType === 'square') {
       let freq = 0;
       try { freq = midiToFrequency(noteToMidi(noteName)); } catch { return; }

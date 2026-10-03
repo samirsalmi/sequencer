@@ -15,6 +15,8 @@ export interface SequencePreset {
   tracks: {
     trackName: string;
     synthType: 'sine' | 'square' | 'sawtooth' | 'triangle' | 'distortion';
+    /** Stereo position, -1 (left) to 1 (right). */
+    pan?: number;
     distortion?: number;
     drive?: number;
     filterCutoff?: number;
@@ -44,8 +46,11 @@ export interface FilterEnvelope {
 }
 
 export interface VibratoConfig {
+  /** Pitch depth in cents (±). */
   depth: number;
   rate: number;
+  /** Seconds before vibrato fades in (players add it after the attack). */
+  delay?: number;
 }
 
 export interface DistortionConfig {
@@ -60,7 +65,19 @@ export interface HighPassConfig {
 export interface InstrumentPreset {
   name: string;
   label: string;
+  /** 'subtractive' (oscillators → filter → amp, default) or 'pluck' (Karplus–Strong string). */
+  engine?: 'subtractive' | 'pluck';
+  pluck?: { brightness: number; decay: number };
   oscType: OscillatorType;
+  /** Second oscillator: waveform (defaults to oscType), octave offset, level 0–1 and detune in cents. */
+  osc2Type?: OscillatorType;
+  osc2Octave?: number;
+  osc2Level?: number;
+  detune?: number;
+  /** Breath / bow / air noise mixed into the filter, 0–1. */
+  noise?: number;
+  /** 0 = fixed filter cutoff, 1 = cutoff follows pitch fully (default 0.5). */
+  keyTracking?: number;
   ampAttack: number;
   ampDecay: number;
   ampSustain: number;
@@ -73,282 +90,25 @@ export interface InstrumentPreset {
   sampleSet?: string;
 }
 
-/* export const INSTRUMENT_PRESETS: Record<string, InstrumentPreset> = {
-  piano: {
-    name: 'piano',
-    label: '🎹 Piano',
-    oscType: 'triangle',
-    ampAttack: 0.002,
-    ampDecay: 0.45,
-    ampSustain: 0.3,
-    ampRelease: 0.4,
-    velocitySensitivity: 0.8,
-  },
-  flute: {
-    name: 'flute',
-    label: '🎵 Flute',
-    oscType: 'triangle',
-    ampAttack: 0.12,
-    ampDecay: 0.2,
-    ampSustain: 0.9,
-    ampRelease: 0.15,
-    velocitySensitivity: 0.4,
-    vibrato: { depth: 2.5, rate: 5.8 },
-  },
-  guitar: {
-    name: 'guitar',
-    label: '🎸 Guitar',
-    oscType: 'sawtooth',
-    ampAttack: 0.004,
-    ampDecay: 0.65,
-    ampSustain: 0.2,
-    ampRelease: 0.3,
-    velocitySensitivity: 0.6,
-    filterEnvelope: {
-      initialCutoff: 7500,
-      finalCutoff: 800,
-      rampDuration: 0.32,
-      Q: 1.8,
-    },
-  },
-  classicalGuitar: {
-    name: 'classicalGuitar',
-    label: '🏛️ Classical Guitar',
-    oscType: 'sawtooth',
-    ampAttack: 0.005,
-    ampDecay: 0.65,
-    ampSustain: 0.15,
-    ampRelease: 0.35,
-    velocitySensitivity: 0.7,
-    filterEnvelope: {
-      initialCutoff: 4500,
-      finalCutoff: 550,
-      rampDuration: 0.25,
-      Q: 1.0,
-    },
-  },   acousticGuitar: {
-    name: 'acousticGuitar',
-    label: '🎸 Balanced Woody Acoustic',
-    oscType: 'sawtooth',       
-    ampAttack: 0.003,          // Sharp physical pluck
-    ampDecay: 3.4,            // Natural acoustic tail fade out
-    ampSustain: 0.0,          // Complete silence when note finishes
-    ampRelease: 0.3,
-    velocitySensitivity: 0.8,
-    filterEnvelope: {
-      initialCutoff: 1250,    // Punchy woody string strike
-      finalCutoff: 340,       // Crucial: Raised to shave off the muddy, deep sub-bass
-      rampDuration: 0.42,     // Natural weight transition time
-      Q: 2.2,                 // Balanced resonance for wood body emulation without mud
-    },
-  },
-
-
-
-}; */
-
+// Each instrument has two voices:
+//  • realistic: `sampleSet` (recorded samples, used in 'sample' / 'layer' playback mode)
+//  • retro:     the synth patch below (used in 'synth' mode, RETRO mode, and as fallback for missing samples)
+// Plucked strings use the Karplus–Strong engine; everything else is subtractive
+// (2 oscillators + optional breath noise → key-tracked filter envelope → exponential ADSR).
+// Vibrato depth is in cents.
 export const INSTRUMENT_PRESETS: Record<string, InstrumentPreset> = {
 
-  // ── PIANO ──────────────────────────────────────────────────────────────────
-  // Hammer-struck string: instant attack, long natural decay to silence.
-  // The brief filter sweep simulates the hard hammer "knock" on attack.
+  // ── Keys ──────────────────────────────────────────────────────────────
   piano: {
     name: 'piano',
     label: '🎹 Piano',
     sampleSet: 'acoustic-piano',
     oscType: 'triangle',
-    ampAttack: 0.002,
-    ampDecay: 2.2,          // ← was 0.45 — the long decay IS the piano sound
-    ampSustain: 0.0,        // ← was 0.3  — hammer-struck, not organ-held
-    ampRelease: 0.6,
+    osc2Type: 'sine', osc2Octave: 1, osc2Level: 0.3, detune: 3,
+    ampAttack: 0.002, ampDecay: 1.8, ampSustain: 0.0, ampRelease: 0.35,
     velocitySensitivity: 0.9,
-    filterEnvelope: {
-      initialCutoff: 9000,  // Hammer "knock" brightness on attack
-      finalCutoff: 2800,    // Settles to a warm, resonant body tone
-      rampDuration: 0.07,   // Very fast — the transient clears in ~70 ms
-      Q: 0.7,
-    },
-  },
-
-  // ── ELECTRIC GUITAR (CLEAN) ────────────────────────────────────────────────
-  // Magnetic pickup + amplifier = the signal sustains while the string rings.
-  // ampSustain: 0.35 is CORRECT here — electric guitar genuinely sustains.
-  // Filter: bright pick attack → clean amplified midrange.
-  guitar: {
-    name: 'guitar',
-    label: '🎸 Electric Guitar',
-    sampleSet: 'electric-guitar',
-    oscType: 'sawtooth',    // Sawtooth has both even+odd harmonics like a real string
-    ampAttack: 0.003,
-    ampDecay: 0.5,
-    ampSustain: 0.35,       // Correct — amplifier sustains the note
-    ampRelease: 0.3,
-    velocitySensitivity: 0.6,
-    filterEnvelope: {
-      initialCutoff: 8500,  // Crisp pick attack brightness
-      finalCutoff: 2200,    // Clean amp "presence" tone
-      rampDuration: 0.12,
-      Q: 1.5,
-    },
-  },
-
-  // ── CLASSICAL GUITAR (NYLON) ───────────────────────────────────────────────
-  // Plucked nylon string — softer, warmer than steel.
-  // Triangle wave mimics the rounder harmonic profile of nylon.
-  // CRITICAL FIX: ampSustain 0.15 → 0.0 (plucked, not held).
-  classicalGuitar: {
-    name: 'classicalGuitar',
-    label: '🏛️ Classical Guitar',
-    sampleSet: 'electric-guitar',
-    oscType: 'triangle',    // Rounder harmonics = nylon warmth
-    ampAttack: 0.004,
-    ampDecay: 3.5,          // Nylon rings long with natural decay
-    ampSustain: 0.0,        // ← was 0.15 — plucked string decays to silence
-    ampRelease: 0.3,
-    velocitySensitivity: 0.7,
-    filterEnvelope: {
-      initialCutoff: 4000,  // Softer pluck — nylon is less "twangy" than steel
-      finalCutoff: 750,     // ← was 550 — raised slightly to avoid muddiness
-      rampDuration: 0.32,
-      Q: 1.3,
-    },
-  },
-
-  // ── ACOUSTIC GUITAR (STEEL STRING) ────────────────────────────────────────
-  // The two critical fixes here:
-  //
-  //   initialCutoff 1250 → 5500: Steel string twang NEEDS a wide-open filter
-  //   at attack. 1250 Hz is already warm/muffled — there's no pluck transient.
-  //
-  //   finalCutoff 340 → 1100: A LPF at 340 Hz kills everything above near-bass.
-  //   Guitar body warmth/character lives at 800–1500 Hz. This single change
-  //   will have the biggest impact.
-  //
-  acousticGuitar: {
-    name: 'acousticGuitar',
-    label: '🎸 Acoustic Guitar',
-    sampleSet: 'electric-guitar',
-    oscType: 'sawtooth',    // Steel string richness — sawtooth has full harmonics
-    ampAttack: 0.002,       // Nearly instant pluck
-    ampDecay: 2.4,          // Natural string ring and decay
-    ampSustain: 0.0,        // Plucked string decays to silence
-    ampRelease: 0.2,
-    velocitySensitivity: 0.8,
-    filterEnvelope: {
-      initialCutoff: 5500,  // ← was 1250 — bright steel "twang" on pluck
-      finalCutoff: 1100,    // ← was 340  — warm woody body (NOT muffled mud)
-      rampDuration: 0.28,   // ← was 0.42 — faster sweep keeps pluck crisp
-      Q: 2.2,               // Moderate peak simulates guitar body resonance
-    },
-  },
-
-  // ── DRUMS ──────────────────────────────────────────────────────────────────
-  drums: {
-    name: 'drums',
-    label: '🥁 Drums',
-    oscType: 'sine',
-    ampAttack: 0.001,
-    ampDecay: 0.3,
-    ampSustain: 0.0,
-    ampRelease: 0.1,
-    velocitySensitivity: 0.5,
-  },
-
-  // ── VSCO 2 CE Orchestral ──────────────────────────────────────────────────
-
-  violin: {
-    name: 'violin',
-    label: '🎻 Violin Section',
-    sampleSet: 'vsco-violin',
-    oscType: 'sawtooth',
-    ampAttack: 0.06,
-    ampDecay: 0.3,
-    ampSustain: 0.8,
-    ampRelease: 0.2,
-    velocitySensitivity: 0.5,
-    vibrato: { depth: 3, rate: 5.5 },
-    filterEnvelope: {
-      initialCutoff: 8000,
-      finalCutoff: 2000,
-      rampDuration: 0.3,
-      Q: 1.5,
-    },
-  },
-
-  cello: {
-    name: 'cello',
-    label: '🎻 Cello Section',
-    sampleSet: 'vsco-cello',
-    oscType: 'sawtooth',
-    ampAttack: 0.04,
-    ampDecay: 0.3,
-    ampSustain: 0.8,
-    ampRelease: 0.2,
-    velocitySensitivity: 0.5,
-    vibrato: { depth: 2.5, rate: 5 },
-    filterEnvelope: {
-      initialCutoff: 9000,
-      finalCutoff: 1500,
-      rampDuration: 0.25,
-      Q: 1.8,
-    },
-  },
-
-  orchestralFlute: {
-    name: 'orchestralFlute',
-    label: '🎵 Flute',
-    sampleSet: 'vsco-flute',
-    oscType: 'triangle',
-    ampAttack: 0.1,
-    ampDecay: 0.15,
-    ampSustain: 0.85,
-    ampRelease: 0.15,
-    velocitySensitivity: 0.4,
-    vibrato: { depth: 3.5, rate: 5.5 },
-    filterEnvelope: {
-      initialCutoff: 10000,
-      finalCutoff: 3000,
-      rampDuration: 0.1,
-      Q: 1.0,
-    },
-  },
-
-  trumpet: {
-    name: 'trumpet',
-    label: '🎺 Trumpet',
-    sampleSet: 'vsco-trumpet',
-    oscType: 'sawtooth',
-    ampAttack: 0.03,
-    ampDecay: 0.2,
-    ampSustain: 0.8,
-    ampRelease: 0.15,
-    velocitySensitivity: 0.6,
-    vibrato: { depth: 2, rate: 6 },
-    filterEnvelope: {
-      initialCutoff: 12000,
-      finalCutoff: 4000,
-      rampDuration: 0.15,
-      Q: 1.2,
-    },
-  },
-
-  frenchHorn: {
-    name: 'frenchHorn',
-    label: '📯 French Horn',
-    sampleSet: 'vsco-horn',
-    oscType: 'sawtooth',
-    ampAttack: 0.05,
-    ampDecay: 0.2,
-    ampSustain: 0.85,
-    ampRelease: 0.2,
-    velocitySensitivity: 0.5,
-    vibrato: { depth: 1.5, rate: 5 },
-    filterEnvelope: {
-      initialCutoff: 7000,
-      finalCutoff: 2500,
-      rampDuration: 0.2,
-      Q: 2.0,
-    },
+    keyTracking: 0.7,
+    filterEnvelope: { initialCutoff: 7000, finalCutoff: 1600, rampDuration: 0.5, Q: 0.6 }, // hammer brightness fading
   },
 
   uprightPiano: {
@@ -356,80 +116,170 @@ export const INSTRUMENT_PRESETS: Record<string, InstrumentPreset> = {
     label: '🎹 Upright Piano',
     sampleSet: 'vsco-upright',
     oscType: 'triangle',
-    ampAttack: 0.002,
-    ampDecay: 2.0,
-    ampSustain: 0.0,
-    ampRelease: 0.5,
-    velocitySensitivity: 0.8,
-    filterEnvelope: {
-      initialCutoff: 8000,
-      finalCutoff: 2000,
-      rampDuration: 0.07,
-      Q: 0.7,
-    },
+    osc2Type: 'square', osc2Octave: 1, osc2Level: 0.12, detune: 9, // slightly detuned = honky upright
+    ampAttack: 0.002, ampDecay: 1.4, ampSustain: 0.0, ampRelease: 0.3,
+    velocitySensitivity: 0.85,
+    keyTracking: 0.7,
+    filterEnvelope: { initialCutoff: 6000, finalCutoff: 1400, rampDuration: 0.35, Q: 0.8 },
   },
 
-  // ── KARORYFER EMILY GUITAR ──────────────────────────────────────────────────
-  // Warm flatwound electric guitar, d'Addario Chromes 11ga.
+  // ── Guitars & bass (Karplus–Strong plucked strings when synthesized) ──
+  guitar: {
+    name: 'guitar',
+    label: '🎸 Electric Guitar',
+    sampleSet: 'electric-guitar',
+    engine: 'pluck', pluck: { brightness: 0.75, decay: 2.8 },
+    oscType: 'sawtooth',
+    ampAttack: 0.002, ampDecay: 0.5, ampSustain: 0.35, ampRelease: 0.25,
+    velocitySensitivity: 0.6,
+  },
+
+  classicalGuitar: {
+    name: 'classicalGuitar',
+    label: '🏛️ Classical Guitar',
+    // No nylon-string samples in the library yet; Emily (warm, flatwound) is the closest real guitar
+    sampleSet: 'karoryfer-guitar',
+    engine: 'pluck', pluck: { brightness: 0.35, decay: 3.2 }, // soft nylon pluck
+    oscType: 'triangle',
+    ampAttack: 0.004, ampDecay: 3.5, ampSustain: 0.0, ampRelease: 0.45,
+    velocitySensitivity: 0.7,
+  },
+
+  acousticGuitar: {
+    name: 'acousticGuitar',
+    label: '🎸 Acoustic Guitar',
+    // No steel-string acoustic samples yet; Emily is the closest real guitar
+    sampleSet: 'karoryfer-guitar',
+    engine: 'pluck', pluck: { brightness: 0.62, decay: 3.0 },
+    oscType: 'sawtooth',
+    ampAttack: 0.002, ampDecay: 2.4, ampSustain: 0.0, ampRelease: 0.4,
+    velocitySensitivity: 0.8,
+  },
+
   karoryferGuitar: {
     name: 'karoryferGuitar',
     label: '🎸 Emily Guitar (Warm)',
     sampleSet: 'karoryfer-guitar',
+    engine: 'pluck', pluck: { brightness: 0.45, decay: 2.6 },
     oscType: 'sawtooth',
-    ampAttack: 0.003,
-    ampDecay: 0.5,
-    ampSustain: 0.35,
-    ampRelease: 0.3,
+    ampAttack: 0.003, ampDecay: 0.5, ampSustain: 0.35, ampRelease: 0.35,
     velocitySensitivity: 0.6,
-    filterEnvelope: {
-      initialCutoff: 9000,
-      finalCutoff: 2000,
-      rampDuration: 0.12,
-      Q: 1.5,
-    },
   },
 
-  // ── BJAM GUITAR (BRIDGE) ──────────────────────────────────────────────────
-  // Aggressive bridge pickup, good for rock/metal sustain.
   bjamGuitar: {
     name: 'bjamGuitar',
     label: '🎸 BJAM Bridge (Aggressive)',
     sampleSet: 'bjam-guitar',
+    engine: 'pluck', pluck: { brightness: 0.9, decay: 2.2 },
     oscType: 'sawtooth',
-    ampAttack: 0.003,
-    ampDecay: 0.7,
-    ampSustain: 0.3,
-    ampRelease: 0.25,
+    ampAttack: 0.003, ampDecay: 0.7, ampSustain: 0.3, ampRelease: 0.25,
     velocitySensitivity: 0.7,
-    filterEnvelope: {
-      initialCutoff: 10000,
-      finalCutoff: 2500,
-      rampDuration: 0.1,
-      Q: 2.0,
-    },
   },
 
-  // ── METAL GUITAR (DISTORTION + BJAM CHUG) ────────────────────────────────
-  // Dual-oscillator distortion with BJAM bridge samples for chugs
   metalGuitar: {
     name: 'metalGuitar',
     label: '🤘 Metal Guitar (Distortion)',
-    sampleSet: 'bjam-guitar',
+    sampleSet: 'bjam-guitar', // samples are driven through the same distortion
     oscType: 'sawtooth',
-    ampAttack: 0.003,
-    ampDecay: 0.5,
-    ampSustain: 0.2,
-    ampRelease: 0.15,
-    velocitySensitivity: 0.8,
-    distortion: { amount: 0.7, oversample: '4x' },
-    filterEnvelope: {
-      initialCutoff: 12000,
-      finalCutoff: 3000,
-      rampDuration: 0.05,
-      Q: 2.5,
-    },
+    osc2Type: 'sawtooth', osc2Level: 0.8, detune: 14, // double-tracked rhythm guitar
+    ampAttack: 0.002, ampDecay: 0.4, ampSustain: 0.65, ampRelease: 0.08,
+    velocitySensitivity: 0.6,
+    keyTracking: 0.3,
+    distortion: { amount: 0.75, oversample: '4x' },
+    highPassFilter: { frequency: 90 },
+    filterEnvelope: { initialCutoff: 5500, finalCutoff: 2600, rampDuration: 0.08, Q: 1.8 },
   },
 
+  bass: {
+    name: 'bass',
+    label: '🎸 Electric Bass',
+    sampleSet: 'electric-bass',
+    engine: 'pluck', pluck: { brightness: 0.3, decay: 2.4 }, // round fingerstyle bass
+    oscType: 'triangle',
+    ampAttack: 0.003, ampDecay: 1.5, ampSustain: 0.0, ampRelease: 0.2,
+    velocitySensitivity: 0.6,
+  },
+
+  // ── Strings (string-machine style when synthesized) ───────────────────
+  violin: {
+    name: 'violin',
+    label: '🎻 Violin Section',
+    sampleSet: 'vsco-violin',
+    oscType: 'sawtooth',
+    osc2Type: 'sawtooth', osc2Level: 0.8, detune: 9, // two players slightly apart = section
+    noise: 0.05, // bow hiss
+    ampAttack: 0.12, ampDecay: 0.3, ampSustain: 0.85, ampRelease: 0.3,
+    velocitySensitivity: 0.5,
+    keyTracking: 0.5,
+    vibrato: { depth: 14, rate: 5.6, delay: 0.25 },
+    filterEnvelope: { initialCutoff: 2200, finalCutoff: 4800, rampDuration: 0.3, Q: 0.7 }, // bow "opens" the tone
+  },
+
+  cello: {
+    name: 'cello',
+    label: '🎻 Cello Section',
+    sampleSet: 'vsco-cello',
+    oscType: 'sawtooth',
+    osc2Type: 'sawtooth', osc2Level: 0.7, detune: 7,
+    noise: 0.04,
+    ampAttack: 0.1, ampDecay: 0.3, ampSustain: 0.85, ampRelease: 0.3,
+    velocitySensitivity: 0.5,
+    keyTracking: 0.5,
+    vibrato: { depth: 12, rate: 5.0, delay: 0.3 },
+    filterEnvelope: { initialCutoff: 1600, finalCutoff: 3600, rampDuration: 0.3, Q: 0.8 },
+  },
+
+  // ── Winds & brass ─────────────────────────────────────────────────────
+  orchestralFlute: {
+    name: 'orchestralFlute',
+    label: '🎵 Flute',
+    sampleSet: 'vsco-flute',
+    oscType: 'sine',
+    osc2Type: 'triangle', osc2Level: 0.3, detune: 2,
+    noise: 0.22, // breath
+    ampAttack: 0.07, ampDecay: 0.2, ampSustain: 0.85, ampRelease: 0.15,
+    velocitySensitivity: 0.4,
+    keyTracking: 0.6,
+    vibrato: { depth: 10, rate: 5.2, delay: 0.3 },
+    filterEnvelope: { initialCutoff: 6000, finalCutoff: 3500, rampDuration: 0.15, Q: 0.6 },
+  },
+
+  trumpet: {
+    name: 'trumpet',
+    label: '🎺 Trumpet',
+    sampleSet: 'vsco-trumpet',
+    oscType: 'sawtooth',
+    osc2Type: 'square', osc2Level: 0.25, detune: 4,
+    noise: 0.04,
+    ampAttack: 0.03, ampDecay: 0.25, ampSustain: 0.85, ampRelease: 0.12,
+    velocitySensitivity: 0.7,
+    keyTracking: 0.6,
+    vibrato: { depth: 8, rate: 5.5, delay: 0.35 },
+    filterEnvelope: { initialCutoff: 700, finalCutoff: 4200, rampDuration: 0.07, Q: 1.4 }, // brassy "blat" as the filter swells open
+  },
+
+  frenchHorn: {
+    name: 'frenchHorn',
+    label: '📯 French Horn',
+    sampleSet: 'vsco-horn',
+    oscType: 'sawtooth',
+    osc2Type: 'triangle', osc2Level: 0.6, detune: 5,
+    noise: 0.02,
+    ampAttack: 0.07, ampDecay: 0.3, ampSustain: 0.85, ampRelease: 0.22,
+    velocitySensitivity: 0.5,
+    keyTracking: 0.5,
+    vibrato: { depth: 6, rate: 5.0, delay: 0.4 },
+    filterEnvelope: { initialCutoff: 450, finalCutoff: 1700, rampDuration: 0.14, Q: 0.8 }, // mellow, covered tone
+  },
+
+  // ── Percussion ────────────────────────────────────────────────────────
+  drums: {
+    name: 'drums',
+    label: '🥁 Drums',
+    oscType: 'sine',
+    ampAttack: 0.001, ampDecay: 0.3, ampSustain: 0.0, ampRelease: 0.1,
+    velocitySensitivity: 0.5,
+  },
 };
 const f = false;
 const t = true;
@@ -560,6 +410,7 @@ export const PLAYLIST_PRESETS: SequencePreset[] = [
   tracks: [
     {
       trackName: "🎹 Right Hand — Broken Chords",
+      pan: -0.2,
       synthType: "triangle",
       instrumentPreset: "piano",
       playbackMode: "sample",
@@ -587,6 +438,7 @@ export const PLAYLIST_PRESETS: SequencePreset[] = [
     },
     {
       trackName: "🎹 Left Hand — Ground Bass",
+      pan: -0.3,
       synthType: "triangle",
       instrumentPreset: "piano",
       playbackMode: "sample",
@@ -612,6 +464,7 @@ export const PLAYLIST_PRESETS: SequencePreset[] = [
     },
     {
       trackName: "🎻 Cello",
+      pan: 0.35,
       synthType: "sawtooth",
       instrumentPreset: "cello",
       playbackMode: "sample",

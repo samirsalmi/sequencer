@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 
 export interface MasterChannel {
   fader: GainNode;
+  panner: StereoPannerNode;
   label: string;
   delaySend: GainNode;
   reverbSend: GainNode;
@@ -15,12 +16,15 @@ export class MasterMixerService {
   private readonly masterFilter: BiquadFilterNode;
   private readonly lfoFilter: BiquadFilterNode;
   private readonly compressor: DynamicsCompressorNode;
+  private readonly masterGain: GainNode;
+  private readonly limiter: DynamicsCompressorNode;
 
   // FX Bus
   private readonly fxReturn: GainNode;
   private readonly delayInput: GainNode;
   private readonly delayNode: DelayNode;
   private readonly delayFeedback: GainNode;
+  private readonly delayTone: BiquadFilterNode;
   private readonly reverbInput: GainNode;
   private readonly reverbConvolver: ConvolverNode;
 
@@ -71,24 +75,43 @@ export class MasterMixerService {
     this.delayFeedback = this.ctx.createGain();
     this.delayFeedback.gain.value = 0.3;
 
+    // Lowpass inside the feedback loop: each repeat gets darker, like tape / analog delays
+    this.delayTone = this.ctx.createBiquadFilter();
+    this.delayTone.type = 'lowpass';
+    this.delayTone.frequency.value = 4500;
+
     this.delayInput.connect(this.delayNode);
-    this.delayNode.connect(this.delayFeedback);
+    this.delayNode.connect(this.delayTone);
+    this.delayTone.connect(this.delayFeedback);
     this.delayFeedback.connect(this.delayNode);
     this.delayNode.connect(this.fxReturn);
 
     // Reverb: input → convolver (synthetic IR) → fxReturn
     this.reverbInput = this.ctx.createGain();
     this.reverbConvolver = this.ctx.createConvolver();
-    this.reverbConvolver.buffer = this._generateReverbIR(2.0, 0.4);
+    this.reverbConvolver.buffer = this._generateReverbIR(2.6);
+    // Keep low end out of the reverb so it doesn't muddy bass and piano left hands
+    const reverbHp = this.ctx.createBiquadFilter();
+    reverbHp.type = 'highpass';
+    reverbHp.frequency.value = 180;
 
-    this.reverbInput.connect(this.reverbConvolver);
+    this.reverbInput.connect(reverbHp).connect(this.reverbConvolver);
     this.reverbConvolver.connect(this.fxReturn);
 
     // Tie FX return into master chain
     this.fxReturn.connect(this.masterFilter);
     this.masterFilter.connect(this.lfoFilter);
+    // Glue compressor → headroom → brickwall-style limiter so stacked voices never clip
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 0.8;
+    this.limiter = this.ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -2;
+    this.limiter.knee.value = 0;
+    this.limiter.ratio.value = 20;
+    this.limiter.attack.value = 0.002;
+    this.limiter.release.value = 0.1;
     this.lfoFilter.connect(this.compressor);
-    this.compressor.connect(this.ctx.destination);
+    this.compressor.connect(this.masterGain).connect(this.limiter).connect(this.ctx.destination);
   }
 
   setLfoRate(value: number): void {
@@ -113,20 +136,24 @@ export class MasterMixerService {
     trackFilter.frequency.value = 20000;
     trackFilter.Q.value = 0;
 
-    fader.connect(trackFilter);
-    trackFilter.connect(this.masterFilter);
+    const panner = this.ctx.createStereoPanner();
 
+    fader.connect(trackFilter);
+    trackFilter.connect(panner);
+    panner.connect(this.masterFilter);
+
+    // Sends are post-pan so a track's echoes and reverb sit on its side of the stereo field
     const delaySend = this.ctx.createGain();
     delaySend.gain.value = 0;
-    trackFilter.connect(delaySend);
+    panner.connect(delaySend);
     delaySend.connect(this.delayInput);
 
     const reverbSend = this.ctx.createGain();
     reverbSend.gain.value = 0;
-    trackFilter.connect(reverbSend);
+    panner.connect(reverbSend);
     reverbSend.connect(this.reverbInput);
 
-    if (register) this.channels.push({ fader, label, delaySend, reverbSend, trackFilter });
+    if (register) this.channels.push({ fader, panner, label, delaySend, reverbSend, trackFilter });
     return fader;
   }
 
@@ -147,6 +174,7 @@ export class MasterMixerService {
   private _disconnect(ch: MasterChannel): void {
     ch.fader.disconnect();
     ch.trackFilter.disconnect();
+    ch.panner.disconnect();
     ch.delaySend.disconnect();
     ch.reverbSend.disconnect();
   }
@@ -156,14 +184,9 @@ export class MasterMixerService {
     if (ch) ch.trackFilter.frequency.setValueAtTime(freq, this.ctx.currentTime);
   }
 
-  triggerTrackFilterEnvelope(trackIndex: number, initialCutoff: number, finalCutoff: number, duration: number, time?: number): void {
+  setPan(trackIndex: number, value: number): void {
     const ch = this.channels[trackIndex];
-    if (ch) {
-      const now = time ?? this.ctx.currentTime;
-      ch.trackFilter.frequency.cancelScheduledValues(now);
-      ch.trackFilter.frequency.setValueAtTime(initialCutoff, now);
-      ch.trackFilter.frequency.exponentialRampToValueAtTime(finalCutoff, now + duration);
-    }
+    if (ch) ch.panner.pan.setValueAtTime(Math.max(-1, Math.min(1, value)), this.ctx.currentTime);
   }
 
   setDelaySend(trackIndex: number, value: number): void {
@@ -188,15 +211,29 @@ export class MasterMixerService {
     this.fxReturn.gain.setValueAtTime(value, this.ctx.currentTime);
   }
 
-  private _generateReverbIR(duration: number, decay: number): AudioBuffer {
+  /**
+   * Synthetic hall impulse response: stereo-decorrelated noise with a short pre-delay, sparse early
+   * reflections and an exponential tail whose high frequencies die faster (air absorption).
+   */
+  private _generateReverbIR(duration: number): AudioBuffer {
     const sr = this.ctx.sampleRate;
     const len = Math.floor(sr * duration);
+    const preDelay = Math.floor(sr * 0.018);
     const buffer = this.ctx.createBuffer(2, len, sr);
     for (let ch = 0; ch < 2; ch++) {
       const data = buffer.getChannelData(ch);
-      for (let i = 0; i < len; i++) {
-        const t = i / sr;
-        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.5) * Math.exp(-decay * t * 10);
+      let lp = 0;
+      for (let i = preDelay; i < len; i++) {
+        const t = (i - preDelay) / sr;
+        const env = Math.exp(-6.9 * t / duration);                 // -60 dB at `duration`
+        const damping = Math.min(0.97, 0.15 + 0.82 * (t / duration)); // darker as it decays
+        lp = lp + (1 - damping) * ((Math.random() * 2 - 1) - lp);
+        data[i] = lp * env;
+      }
+      // Early reflections: a few discrete taps in the first 80 ms, different per side
+      for (let k = 0; k < 8; k++) {
+        const at = preDelay + Math.floor(sr * (0.006 + Math.random() * 0.075));
+        if (at < len) data[at] += (Math.random() < 0.5 ? -1 : 1) * (0.5 - k * 0.04);
       }
     }
     return buffer;

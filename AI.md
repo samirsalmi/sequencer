@@ -26,49 +26,38 @@ A browser-based music sequencer and visualizer built with **Angular** + **Tailwi
 | **Synth** | `instruments/poly-synth`, `bass-synth`, `distortion-synth` | Waveform generation, ADSR, filter sweeps, waveshapers |
 | **Theory** | `utils/music-theory.ts` | Note parsing (sharps/flats), scales, diatonic chords — single source of truth |
 | **Samples** | `sample-engine.service.ts` | Fetch → Cache API → decode → AudioBufferSourceNode playback. Scheduling is synchronous: nearest decoded sample is re-pitched; if none, the caller falls back to synth |
-| **Mixer** | `master-mixer.service.ts` | Per-track faders, LPF filters, delay send, reverb send, LFO modulation |
+| **Mixer** | `master-mixer.service.ts` | Per-track fader → filter → pan, post-pan delay/reverb sends, damped stereo reverb, tape-style delay, glue compressor + limiter |
 | **Drums** | `drum-engine.service.ts` | Synthesized + sampled drum hits (Kick, Snare, Hi-Hat, Toms, Ride, Crash, Clap) |
 | **Data** | `data/playlist-presets.ts` | Built-in song presets (SequencePreset[] array) |
 | **Data** | `data/sample-manifests.ts` | Sample set definitions (SAMPLE_SETS, drum file map) |
 
 ---
 
-## Instrument Presets (15 total)
+## Instrument Presets (15)
 
-Defined in `INSTRUMENT_PRESETS` inside `playlist-presets.ts`. Each preset overrides `synthType` and applies ADSR, filter envelope, vibrato, distortion, and/or a default sample set.
+Defined in `INSTRUMENT_PRESETS` in `playlist-presets.ts`. Every melodic instrument has two voices:
+**realistic** = its `sampleSet` (sample / layer mode) and **retro** = its synth patch (synth mode, RETRO toggle,
+and automatic fallback when a sample is missing).
 
-### Keyboard / Piano
+| Key | Realistic (sample set) | Retro voice |
+|-----|------------------------|-------------|
+| `piano` | `acoustic-piano` | triangle + octave sine, hammer filter sweep, key-tracked |
+| `uprightPiano` | `vsco-upright` | triangle + detuned octave square (honky) |
+| `guitar` | `electric-guitar` (broken: Git LFS) | Karplus–Strong pluck, bright |
+| `classicalGuitar` | `karoryfer-guitar` (closest available) | KS pluck, soft nylon |
+| `acousticGuitar` | `karoryfer-guitar` (closest available) | KS pluck, steel |
+| `karoryferGuitar` | `karoryfer-guitar` | KS pluck, warm |
+| `bjamGuitar` | `bjam-guitar` | KS pluck, very bright |
+| `metalGuitar` | `bjam-guitar` + drive | double-tracked saws → distortion |
+| `bass` | `electric-bass` (broken: Git LFS) | KS pluck, round |
+| `violin` / `cello` | `vsco-violin` / `vsco-cello` | detuned saw section, bow noise, delayed vibrato |
+| `orchestralFlute` | `vsco-flute` | sine + triangle, breath noise, vibrato |
+| `trumpet` / `frenchHorn` | `vsco-trumpet` / `vsco-horn` | saw with opening filter "blat" / mellow covered tone |
+| `drums` | teropa drum samples | synth kit (all 10 drum names, incl. toms / ride / crash) |
 
-- **🎹 Piano** (`piano`) — sampleSet: `acoustic-piano`. Triangle osc, 2ms attack, 2.2s decay to silence. Filter sweep 9000→2800Hz over 70ms for hammer knock.
-- **🎹 Upright Piano** (`uprightPiano`) — sampleSet: `vsco-upright`. Brighter, shorter decay (2s). C2–G8 range.
-
-### Guitar Family
-
-- **🎸 Electric Guitar** (`guitar`) — sampleSet: `electric-guitar`. Sawtooth osc, 3ms attack, amp-sustains at 0.35 (amplifier hold). Filter 8500→2200Hz.
-- **🎸 Emily Guitar (Warm)** (`karoryferGuitar`) — sampleSet: `karoryfer-guitar`. d'Addario Chromes flatwound. Warmer EQ curve, Bb2–C6.
-- **🎸 BJAM Bridge (Aggressive)** (`bjamGuitar`) — sampleSet: `bjam-guitar`. Bridge pickup. Higher initial cutoff (10kHz), more resonance (Q=2). E3–E5.
-- **🤘 Metal Guitar (Distortion)** (`metalGuitar`) — sampleSet: `bjam-guitar`. Dual sawtooth + asymmetric waveshaper (70% sat, 4x oversample). Filter 12000→3000Hz, Q=2.5. Palm-mute envelope.
-- **🎸 Acoustic Guitar (Steel)** (`acousticGuitar`) — synth only. Sawtooth, 2ms attack, 2.4s decay. Filter 5500→1100Hz, Q=2.2.
-- **🏛️ Classical Guitar (Nylon)** (`classicalGuitar`) — synth only. Triangle osc, 4ms attack, 3.5s decay. Filter 4000→750Hz, Q=1.3.
-
-### Winds
-
-- **🎵 Flute** (`flute`) — synth only. Triangle osc, 120ms breath attack, sustain 0.9. Vibrato 5.5Hz ±3.2Hz depth.
-- **🎵 Flute (Orchestral)** (`orchestralFlute`) — sampleSet: `vsco-flute`. Triangle osc. C4–C7 range.
-
-### Brass
-
-- **🎺 Trumpet** (`trumpet`) — sampleSet: `vsco-trumpet`. Sawtooth osc, 30ms attack, sustain 0.8. Vibrato 6Hz ±2Hz.
-- **📯 French Horn** (`frenchHorn`) — sampleSet: `vsco-horn`. Sawtooth osc, 50ms attack, sustain 0.85. A0–F5 range.
-
-### Strings
-
-- **🎻 Violin Section** (`violin`) — sampleSet: `vsco-violin`. Sawtooth osc, 60ms attack, sustain 0.8. Vibrato 5.5Hz ±3Hz. G3–D6.
-- **🎻 Cello Section** (`cello`) — sampleSet: `vsco-cello`. Sawtooth osc, 40ms attack, sustain 0.8. Vibrato 5Hz ±2.5Hz. C2–F5.
-
-### Percussion
-
-- **🥁 Drums** (`drums`) — routed to DrumEngine when rowNotes contain drum names. Hybrid synth + MP3 samples.
+Patch fields: `engine` ('subtractive' | 'pluck'), `pluck {brightness, decay}`, `oscType`, `osc2Type/osc2Octave/osc2Level/detune`,
+`noise` (breath/bow), `keyTracking`, `filterEnvelope`, `ampAttack/Decay/Sustain/Release`, `velocitySensitivity`
+(volume **and** brightness), `vibrato {depth (cents), rate, delay}`, `distortion`, `highPassFilter`.
 
 ---
 

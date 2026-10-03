@@ -65,6 +65,7 @@ async function extractFromMxl(buf: ArrayBuffer): Promise<string> {
 export class App implements OnInit {
   protected readonly audio = inject(AudioService);
   readonly SAMPLE_SETS = SAMPLE_SETS;
+  readonly Math = Math;
   readonly playbackModes: ('synth' | 'sample' | 'layer')[] = ['synth', 'sample', 'layer'];
 
   // ── Playlists (static + user songs) ─────────────────────────────────────────

@@ -7,6 +7,11 @@ export class DrumEngineService {
     if (ctx.state === 'suspended') ctx.resume();
 
     const now = time ?? ctx.currentTime;
+    // Kit bus: brings the synth kit to the same level as the sample kit and the instruments
+    const bus = ctx.createGain();
+    bus.gain.value = 0.55;
+    bus.connect(destination);
+    destination = bus;
 
     switch (noteName) {
       case 'Kick':        this.playKick(now, ctx, destination, velocity);    break;
@@ -14,6 +19,11 @@ export class DrumEngineService {
       case 'Hi-Hat':      this.playHiHat(now, ctx, destination, velocity);   break;
       case 'Open Hi-Hat': this.playOpenHat(now, ctx, destination, velocity); break;
       case 'Clap':        this.playClap(now, ctx, destination, velocity);    break;
+      case 'Tom Low':     this.playTom(now, ctx, destination, velocity, 90);  break;
+      case 'Tom Mid':     this.playTom(now, ctx, destination, velocity, 130); break;
+      case 'Tom High':    this.playTom(now, ctx, destination, velocity, 180); break;
+      case 'Ride':        this.playCymbal(now, ctx, destination, velocity, 1.4, 5200, 0.35, true); break;
+      case 'Crash':       this.playCymbal(now, ctx, destination, velocity, 1.9, 3800, 0.45, false); break;
     }
   }
 
@@ -132,7 +142,7 @@ export class DrumEngineService {
     hp.frequency.value = 7000;
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.32 * v, now);
+    gain.gain.setValueAtTime(0.6 * v, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
 
     mix.connect(hp).connect(gain).connect(dest);
@@ -159,7 +169,7 @@ export class DrumEngineService {
     hp.frequency.value = 6500;
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.28 * v, now);
+    gain.gain.setValueAtTime(0.5 * v, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
     mix.connect(hp).connect(gain).connect(dest);
@@ -197,6 +207,81 @@ export class DrumEngineService {
       clap.connect(bp).connect(peak).connect(g).connect(dest);
       clap.start(t);
       clap.stop(t + 0.07);
+    }
+  }
+
+  private playTom(now: number, ctx: AudioContext, dest: AudioNode, v: number, pitch: number): void {
+    // Pitched membrane: sine dropping from ~1.6x to the tuned pitch, plus a short stick click
+    const body = ctx.createOscillator();
+    const bodyGain = ctx.createGain();
+    body.type = 'sine';
+    body.frequency.setValueAtTime(pitch * 1.6, now);
+    body.frequency.exponentialRampToValueAtTime(pitch, now + 0.06);
+    const decay = 0.35 + (180 - pitch) / 300;
+    bodyGain.gain.setValueAtTime(0.9 * v, now);
+    bodyGain.gain.exponentialRampToValueAtTime(0.001, now + decay);
+    body.connect(bodyGain).connect(dest);
+
+    const clickLen = Math.ceil(ctx.sampleRate * 0.012);
+    const clickBuf = ctx.createBuffer(1, clickLen, ctx.sampleRate);
+    const data = clickBuf.getChannelData(0);
+    for (let i = 0; i < clickLen; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / clickLen);
+    const click = ctx.createBufferSource();
+    click.buffer = clickBuf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = pitch * 8;
+    const clickGain = ctx.createGain();
+    clickGain.gain.value = 0.35 * v;
+    click.connect(bp).connect(clickGain).connect(dest);
+
+    body.start(now); body.stop(now + decay + 0.02);
+    click.start(now); click.stop(now + 0.015);
+  }
+
+  private playCymbal(now: number, ctx: AudioContext, dest: AudioNode, v: number, dur: number, hpHz: number, level: number, bell: boolean): void {
+    // Metallic partials (inharmonic squares) + noise wash through a highpass
+    const mix = ctx.createGain();
+    const ratios = [2, 3, 4.16, 5.43, 6.79, 8.21];
+    for (const r of ratios) {
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.value = 340 * r * (bell ? 1.25 : 1);
+      const g = ctx.createGain();
+      g.gain.value = 0.5 / ratios.length;
+      osc.connect(g).connect(mix);
+      osc.start(now);
+      osc.stop(now + dur);
+    }
+    const len = Math.ceil(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    const ng = ctx.createGain();
+    ng.gain.value = bell ? 0.4 : 0.8;
+    noise.connect(ng).connect(mix);
+
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = hpHz;
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0.0001, now);
+    out.gain.linearRampToValueAtTime(level * v, now + 0.003);
+    out.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    mix.connect(hp).connect(out).connect(dest);
+    noise.start(now); noise.stop(now + dur);
+
+    if (bell) {
+      // Ride "ping": a clear bell partial on top
+      const ping = ctx.createOscillator();
+      ping.frequency.value = 3150;
+      const pg = ctx.createGain();
+      pg.gain.setValueAtTime(0.06 * v, now);
+      pg.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      ping.connect(pg).connect(dest);
+      ping.start(now); ping.stop(now + 0.62);
     }
   }
 }
