@@ -103,7 +103,8 @@ export class MasterMixerService {
     this.lfoFilter.frequency.setValueAtTime(value, this.ctx.currentTime);
   }
 
-  createChannel(label: string, gain = 0.8): GainNode {
+  /** `register: false` creates a channel outside the track-indexed list (e.g. for note previews). */
+  createChannel(label: string, gain = 0.8, register = true): GainNode {
     const fader = this.ctx.createGain();
     fader.gain.value = gain;
 
@@ -125,8 +126,29 @@ export class MasterMixerService {
     trackFilter.connect(reverbSend);
     reverbSend.connect(this.reverbInput);
 
-    this.channels.push({ fader, label, delaySend, reverbSend, trackFilter });
+    if (register) this.channels.push({ fader, label, delaySend, reverbSend, trackFilter });
     return fader;
+  }
+
+  /** Disconnects and removes one channel; later channels shift down so indexes keep matching track indexes. */
+  removeChannel(trackIndex: number): void {
+    const ch = this.channels[trackIndex];
+    if (!ch) return;
+    this._disconnect(ch);
+    this.channels.splice(trackIndex, 1);
+  }
+
+  /** Disconnects and removes every channel (used when a new song is loaded). */
+  clearChannels(): void {
+    this.channels.forEach(ch => this._disconnect(ch));
+    this.channels.length = 0;
+  }
+
+  private _disconnect(ch: MasterChannel): void {
+    ch.fader.disconnect();
+    ch.trackFilter.disconnect();
+    ch.delaySend.disconnect();
+    ch.reverbSend.disconnect();
   }
 
   setTrackFilterFreq(trackIndex: number, freq: number): void {

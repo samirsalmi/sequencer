@@ -1,12 +1,22 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { MasterMixerService } from '../master-mixer.service';
-import { SAMPLE_SETS, resolveSampleUrl, getDrumSamplePath, SampleSet } from '../../data/sample-manifests';
+import { SAMPLE_SETS, getDrumSamplePath, sampleUrl, samplesByDistance } from '../../data/sample-manifests';
+import { noteToMidi } from '../../utils/music-theory';
+
+const CACHE_NAME = 'loomin-samples-v1';
+/** Furthest a sample is re-pitched to cover a missing note (semitones). */
+const MAX_REPITCH = 7;
+/** Release tail for sustained instruments after the grid note ends. */
+const SUSTAIN_RELEASE = 0.25;
 
 @Injectable({ providedIn: 'root' })
 export class SampleEngineService {
   private readonly mixer = inject(MasterMixerService);
 
-  private bufferCache = new Map<string, AudioBuffer>();
+  private readonly bufferCache = new Map<string, AudioBuffer>();
+  /** URLs that 404'd or failed to decode (e.g. Git LFS pointer files) — never refetched this session. */
+  private readonly failedUrls = new Set<string>();
+  private readonly inFlight = new Map<string, Promise<AudioBuffer | null>>();
 
   readonly isLoading = signal(false);
   readonly loadProgress = signal(0);
@@ -24,26 +34,14 @@ export class SampleEngineService {
     this.isLoading.set(true);
     this.loadProgress.set(0);
 
-    const [min, max] = set.noteRange;
-    const total = max - min + 1;
+    const midis = [...set.samples.keys()];
     let done = 0;
-
-    const promises: Promise<void>[] = [];
-
-    for (let midi = min; midi <= max; midi++) {
-      const note = midiToNote(midi);
-      const url = resolveSampleUrl(set, note);
-      if (!url) { done++; continue; }
-
-      promises.push(
-        this._fetchAndCache(url).then(() => {
-          done++;
-          this.loadProgress.set(Math.round((done / total) * 100));
-        })
-      );
-    }
-
-    await Promise.all(promises);
+    await Promise.all(midis.map(midi =>
+      this._load(sampleUrl(set, midi)!).then(() => {
+        done++;
+        this.loadProgress.set(Math.round((done / midis.length) * 100));
+      })
+    ));
 
     const updated = new Set(this.loadedSets());
     updated.add(setName);
@@ -51,173 +49,62 @@ export class SampleEngineService {
     this.isLoading.set(false);
   }
 
-  private async _fetchAndCache(url: string): Promise<void> {
-    if (this.bufferCache.has(url)) return;
-    const cache = await caches.open('loomin-samples-v1');
-    let response = await cache.match(url);
-    if (!response) {
-      try {
-        response = await fetch(url);
-        if (!response.ok) return;
-        await cache.put(url, response.clone());
-      } catch {
-        return;
-      }
-    }
-    try {
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-      const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
-      this.bufferCache.set(url, audioBuffer);
-    } catch {
-      // silently skip decode errors
-    }
-  }
-
-  private async _lazyLoadSingle(set: SampleSet, note: string): Promise<AudioBuffer | null> {
-    const url = resolveSampleUrl(set, note);
-    if (!url) return null;
-    return this._fetchAndCacheSingle(url);
-  }
-
-  async playNote(
-    note: string,
-    velocity: number,
-    destination: AudioNode,
-    sampleSetName: string,
-    time?: number,
-  ): Promise<void> {
+  /**
+   * Schedules a sampled note. Returns false (and starts loading in the background) when no usable
+   * sample is decoded yet, so the caller can fall back to the synth instead of playing late or not at all.
+   * `duration` is the grid note length; sustained instruments stop there, plucked ones ring out.
+   */
+  playNote(note: string, velocity: number, destination: AudioNode, sampleSetName: string, time?: number, duration?: number): boolean {
     const set = SAMPLE_SETS[sampleSetName];
-    if (!set) return;
+    if (!set) return false;
+    let targetMidi: number;
+    try { targetMidi = noteToMidi(note); } catch { return false; }
 
-    let url = resolveSampleUrl(set, note);
-    let buffer = url ? this.bufferCache.get(url) : null;
-    let detuneCents = 0;
-
-    if (!buffer) {
-      // Try lazy-load the exact note first (file may exist on disk)
-      if (url) {
-        buffer = await this._lazyLoadSingle(set, note);
-        if (buffer) {
-          this._playBuffer(buffer, velocity, destination, time ?? this.ctx.currentTime, detuneCents, set.releaseSeconds);
-          return;
-        }
-      }
-
-      // Fallback: search cache outward for nearest loaded file
-      const targetMidi = (() => { try { return noteToMidi(note); } catch { return -1; } })();
-      const [min, max] = set.noteRange;
-
-      for (let offset = 0; offset <= max - min; offset++) {
-        for (const sign of (offset === 0 ? [0] : [-1, 1])) {
-          const midi = targetMidi + sign * offset;
-          if (midi < min || midi > max) continue;
-          const candidateNote = midiToNote(midi);
-          const candidateUrl = resolveSampleUrl(set, candidateNote);
-          if (!candidateUrl) continue;
-          const cached = this.bufferCache.get(candidateUrl);
-          if (cached) {
-            buffer = cached;
-            detuneCents = (targetMidi - midi) * 100;
-            break;
-          }
-        }
-        if (buffer) break;
-      }
-
-      // Lazy load nearest available note as last resort
+    for (const midi of samplesByDistance(set, targetMidi, MAX_REPITCH)) {
+      const url = sampleUrl(set, midi)!;
+      if (this.failedUrls.has(url)) continue;
+      const buffer = this.bufferCache.get(url);
       if (!buffer) {
-        const targetMidi = (() => { try { return noteToMidi(note); } catch { return -1; } })();
-        const [min, max] = set.noteRange;
-        if (targetMidi < 0) return;
-
-        for (let offset = 0; offset <= max - min; offset++) {
-          for (const sign of (offset === 0 ? [0] : [-1, 1])) {
-            const midi = targetMidi + sign * offset;
-            if (midi < min || midi > max) continue;
-            const candidateNote = midiToNote(midi);
-            buffer = await this._lazyLoadSingle(set, candidateNote);
-            if (buffer) {
-              detuneCents = (targetMidi - midi) * 100;
-              break;
-            }
-          }
-          if (buffer) break;
-        }
-        if (!buffer) return;
+        this._load(url);
+        continue;
       }
+      const start = time ?? this.ctx.currentTime;
+      let stop = start + Math.min(set.releaseSeconds ?? buffer.duration, buffer.duration);
+      if (set.sustained && duration != null) stop = Math.min(stop, start + duration + SUSTAIN_RELEASE);
+      this._playBuffer(buffer, velocity, destination, start, stop, (targetMidi - midi) * 100);
+      return true;
     }
-
-    this._playBuffer(buffer, velocity, destination, time ?? this.ctx.currentTime, detuneCents, set.releaseSeconds);
+    return false;
   }
 
-  private _playBuffer(
-    buffer: AudioBuffer,
-    velocity: number,
-    destination: AudioNode,
-    time: number,
-    detuneCents = 0,
-    releaseSeconds?: number,
-  ): void {
-    const source = this.ctx.createBufferSource();
-    source.buffer = buffer;
-    source.detune.value = detuneCents;
-
-    const gain = this.ctx.createGain();
-    const clampedVel = Math.max(0, Math.min(1, velocity));
-    gain.gain.setValueAtTime(clampedVel * 0.8, time);
-
-    const stopTime = releaseSeconds != null
-      ? time + Math.min(releaseSeconds, buffer.duration)
-      : time + buffer.duration;
-
-    gain.gain.setValueAtTime(clampedVel * 0.8, stopTime - 0.05);
-    gain.gain.linearRampToValueAtTime(0.001, stopTime);
-
-    source.connect(gain).connect(destination);
-    source.start(time);
-    source.stop(stopTime);
+  /** For click-to-preview: waits for the nearest sample to load, then plays it immediately. */
+  async previewNote(note: string, velocity: number, destination: AudioNode, sampleSetName: string): Promise<boolean> {
+    if (this.playNote(note, velocity, destination, sampleSetName)) return true;
+    const set = SAMPLE_SETS[sampleSetName];
+    if (!set) return false;
+    let targetMidi: number;
+    try { targetMidi = noteToMidi(note); } catch { return false; }
+    await Promise.all(samplesByDistance(set, targetMidi, MAX_REPITCH).slice(0, 2).map(m => this._load(sampleUrl(set, m)!)));
+    return this.playNote(note, velocity, destination, sampleSetName);
   }
 
-  async playDrum(
-    drumName: string,
-    velocity: number,
-    destination: AudioNode,
-    time?: number,
-  ): Promise<void> {
-    const path = getDrumSamplePath(drumName);
-    if (!path) return;
-
-    let buffer = this.bufferCache.get(path) ?? null;
+  /** Returns false when the drum has no sample or it is not decoded yet (caller should use the synth drum). */
+  playDrum(drumName: string, velocity: number, destination: AudioNode, time?: number): boolean {
+    const url = getDrumSamplePath(drumName);
+    if (!url || this.failedUrls.has(url)) return false;
+    const buffer = this.bufferCache.get(url);
     if (!buffer) {
-      buffer = await this._fetchAndCacheSingle(path);
-      if (!buffer) return;
+      this._load(url);
+      return false;
     }
-    this._playBuffer(buffer, velocity, destination, time ?? this.ctx.currentTime);
+    const start = time ?? this.ctx.currentTime;
+    this._playBuffer(buffer, velocity, destination, start, start + buffer.duration, 0);
+    return true;
   }
 
-  private async _fetchAndCacheSingle(url: string): Promise<AudioBuffer | null> {
-    if (this.bufferCache.has(url)) return this.bufferCache.get(url)!;
-    const cache = await caches.open('loomin-samples-v1');
-    let response = await cache.match(url);
-    if (!response) {
-      try {
-        response = await fetch(url);
-        if (!response.ok) return null;
-        await cache.put(url, response.clone());
-      } catch {
-        return null;
-      }
-    }
-    try {
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-      const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
-      this.bufferCache.set(url, audioBuffer);
-      return audioBuffer;
-    } catch {
-      return null;
-    }
+  /** Loads every drum sample so the first bar of a drum track doesn't fall back to the synth kit. */
+  preloadDrums(names: string[]): Promise<unknown> {
+    return Promise.all(names.map(getDrumSamplePath).filter((u): u is string => !!u).map(u => this._load(u)));
   }
 
   isSampleSetLoaded(setName: string): boolean {
@@ -226,29 +113,61 @@ export class SampleEngineService {
 
   async clearCache(): Promise<void> {
     this.bufferCache.clear();
+    this.failedUrls.clear();
     this.loadedSets.set(new Set());
-    await caches.delete('loomin-samples-v1');
+    await caches.delete(CACHE_NAME);
+  }
+
+  private _playBuffer(buffer: AudioBuffer, velocity: number, destination: AudioNode, start: number, stop: number, detuneCents: number): void {
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.detune.value = detuneCents;
+
+    const gain = this.ctx.createGain();
+    const level = Math.max(0, Math.min(1, velocity)) * 0.8;
+    const fade = Math.min(0.05, (stop - start) / 2);
+    gain.gain.setValueAtTime(level, start);
+    gain.gain.setValueAtTime(level, stop - fade);
+    gain.gain.linearRampToValueAtTime(0.0001, stop);
+
+    source.connect(gain).connect(destination);
+    source.start(start);
+    source.stop(stop);
+  }
+
+  /** Fetch (via Cache API) and decode once; concurrent callers share the same promise. */
+  private _load(url: string): Promise<AudioBuffer | null> {
+    const cached = this.bufferCache.get(url);
+    if (cached) return Promise.resolve(cached);
+    if (this.failedUrls.has(url)) return Promise.resolve(null);
+    let pending = this.inFlight.get(url);
+    if (!pending) {
+      pending = this._fetchAndDecode(url).then(buffer => {
+        this.inFlight.delete(url);
+        if (buffer) this.bufferCache.set(url, buffer);
+        else this.failedUrls.add(url);
+        return buffer;
+      });
+      this.inFlight.set(url, pending);
+    }
+    return pending;
+  }
+
+  private async _fetchAndDecode(url: string): Promise<AudioBuffer | null> {
+    try {
+      const cache = typeof caches !== 'undefined' ? await caches.open(CACHE_NAME) : null;
+      let response = await cache?.match(url);
+      if (!response) {
+        response = await fetch(url);
+        if (!response.ok) return null;
+        await cache?.put(url, response.clone());
+      }
+      const decoded = await this.ctx.decodeAudioData(await response.arrayBuffer());
+      return decoded;
+    } catch {
+      // Network failure, or a file that isn't audio (e.g. a Git LFS pointer) — evict so a fixed file is refetched later
+      try { await (await caches.open(CACHE_NAME)).delete(url); } catch {}
+      return null;
+    }
   }
 }
-
-// ── Helpers ──────────────────────────────────────────────────────────────
-
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
-function noteToMidi(note: string): number {
-  const m = note.match(/^([A-G]#?)(-?\d+)$/);
-  if (!m) throw new Error(`Invalid note: ${note}`);
-  const name = m[1];
-  const octave = parseInt(m[2], 10);
-  const idx = NOTE_NAMES.indexOf(name);
-  if (idx === -1) throw new Error(`Invalid note name: ${name}`);
-  return (octave + 1) * 12 + idx;
-}
-
-function midiToNote(midi: number): string {
-  const octave = Math.floor(midi / 12) - 1;
-  const name = NOTE_NAMES[midi % 12];
-  return `${name}${octave}`;
-}
-
-

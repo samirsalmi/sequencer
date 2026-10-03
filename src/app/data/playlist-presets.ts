@@ -630,7 +630,7 @@ export const PLAYLIST_PRESETS: SequencePreset[] = [
       "filterCutoff": 800,
       "reverbSend": 0.6,
       "delaySend": 0.0,
-      "rowNotes": ["D1", "A1", "B1", "F#1", "G1"],
+      "rowNotes": ["D2", "A2", "B2", "F#2", "G2"],
       "grid": [
         // D1 (Steps 0-3 and 20-23)
         [0.85, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.85, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],

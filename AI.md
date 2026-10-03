@@ -11,7 +11,7 @@ A browser-based music sequencer and visualizer built with **Angular** + **Tailwi
 - Updated `sample-manifests.ts` basePaths to CDN URLs.
 - Cache API persistence: `caches.open('loomin-samples-v1')` stores decoded buffers across reloads.
 - Preload-before-playback: `play()` awaits `_preloadActiveSampleSets()` before starting transport; `isPreloading` signal shown in UI.
-- Grid pagination: `gridOffset`/`pageSize=500` (app.ts), `◀ ▶` nav buttons, `visibleStart()`/`visibleEnd()`.
+- Grid pagination: `gridOffset`/`pageSize=50` (app.ts), `◀ ▶` nav buttons, `visibleStart()`/`visibleEnd()`.
 - Fixed note labels scrolling off-screen — moved `overflow-x-auto` to step columns wrapper, added `flex-shrink-0` to label column.
 - Fixed scroll buttons going negative — early return when at bounds.
 - Fixed step numbers scrolling away — restructured grid into 2D frozen-pane layout: `overflow-auto` outer wrapper, sticky-left note labels column, sticky-top step numbers row.
@@ -23,11 +23,11 @@ A browser-based music sequencer and visualizer built with **Angular** + **Tailwi
 | Layer | File | Role |
 |-------|------|------|
 | **Clock** | `audio.service.ts` | Master loop — iterates grid steps, dispatches note events, manages BPM/swing/transport |
-| **Synth** | `synth-engine.service.ts` | PolySynth, BassSynth, DistortionSynth — waveform generation, ADSR, filter sweeps, waveshapers |
-| **Samples** | `sample-engine.service.ts` | Fetch → Cache API → decode → AudioBufferSourceNode playback |
+| **Synth** | `instruments/poly-synth`, `bass-synth`, `distortion-synth` | Waveform generation, ADSR, filter sweeps, waveshapers |
+| **Theory** | `utils/music-theory.ts` | Note parsing (sharps/flats), scales, diatonic chords — single source of truth |
+| **Samples** | `sample-engine.service.ts` | Fetch → Cache API → decode → AudioBufferSourceNode playback. Scheduling is synchronous: nearest decoded sample is re-pitched; if none, the caller falls back to synth |
 | **Mixer** | `master-mixer.service.ts` | Per-track faders, LPF filters, delay send, reverb send, LFO modulation |
 | **Drums** | `drum-engine.service.ts` | Synthesized + sampled drum hits (Kick, Snare, Hi-Hat, Toms, Ride, Crash, Clap) |
-| **Visualizer** | `components/visualizer/` | Canvas particle system, step highlight, requestAnimationFrame |
 | **Data** | `data/playlist-presets.ts` | Built-in song presets (SequencePreset[] array) |
 | **Data** | `data/sample-manifests.ts` | Sample set definitions (SAMPLE_SETS, drum file map) |
 
@@ -73,6 +73,8 @@ Defined in `INSTRUMENT_PRESETS` inside `playlist-presets.ts`. Each preset overri
 ---
 
 ## Sample Sets (11 total)
+
+See `docs/sample-library.md` for which files exist, pitch corrections (VSCO files are named an octave low) and known broken sets (guitar/bass are Git LFS pointers).
 
 Defined in `SAMPLE_SETS` inside `sample-manifests.ts`. Used when `playbackMode` is `"sample"` or `"layer"`.
 
@@ -127,7 +129,7 @@ The **distortion** engine adds: asymmetric tube waveshaper (distortion 0–1, dr
 | Mode | Behavior |
 |------|----------|
 | `synth` | Pure subtractive synthesis. `sampleSet` ignored. |
-| `sample` | Real `.wav`/`.flac` files from sample set. Falls back to synth if no set found. |
+| `sample` | Real `.wav`/`.flac` files from sample set. Falls back to synth per note when no set, no loaded sample, or a broken file. |
 | `layer` | Synth + sample play simultaneously. `sampleBlend` (0–1) controls mix. |
 
 **Retro Mode** (global toggle) forces all tracks to `synth`, bypassing all sample loading.

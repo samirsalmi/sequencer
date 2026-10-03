@@ -1,4 +1,6 @@
 ﻿import { readFileSync, existsSync, readdirSync, copyFileSync } from 'fs';
+// WARNING: this copies the nearest source sample WITHOUT re-pitching it, so filled keys sound at the wrong pitch.
+// Those files are excluded in src/app/data/sample-manifests.ts (PIANO_WRONG_PITCH_COPIES). Do not reuse as-is.
 import { resolve, join } from 'path';
 
 // Standard note names

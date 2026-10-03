@@ -6,7 +6,7 @@ import { parseTimeSignature, stepsPerMeasure, stepsPerBeat, isMeasureStart, isBe
 const PRESET_ORIGINAL_TRACK_COUNTS: Record<string, number> = Object.fromEntries(
   PLAYLIST_PRESETS.map(p => [p.name, p.tracks.length])
 );
-import { noteToMidi, midiToFrequency } from './synth-engine.service';
+import { noteToMidi, midiToFrequency } from '../utils/music-theory';
 import { MasterMixerService } from './master-mixer.service';
 import { BassSynthService } from './instruments/bass-synth.service';
 import { PolySynthService } from './instruments/poly-synth.service';
@@ -15,6 +15,7 @@ import { DrumEngineService } from './instruments/drum-engine.service';
 import { SampleEngineService } from './instruments/sample-engine.service';
 
 const STORAGE_KEY = 'loomin_custom_tracks';
+const DRUM_NAME_RE = /^(Kick|Snare|Hi-Hat|Open Hi-Hat|Tom Low|Tom Mid|Tom High|Ride|Crash|Clap)$/;
 
 type CustomTrackStore = Record<string, SequencePreset['tracks']>;
 
@@ -47,6 +48,7 @@ export class AudioService {
   private readonly sampleEngine = inject(SampleEngineService);
 
   private loopId: ReturnType<typeof setInterval> | null = null;
+  private previewChannel: GainNode | null = null;
   private trackChannels: GainNode[] = [];
   private lastFreqByTrack = new Map<number, number>();
 
@@ -170,7 +172,8 @@ export class AudioService {
 
   loadPreset(preset: SequencePreset): void {
     this.stop();
-    this.trackChannels.forEach(f => f.disconnect());
+    // Mixer channels are addressed by track index, so they must be rebuilt in lockstep with trackChannels
+    this.mixer.clearChannels();
     this.trackChannels = [];
 
     // Merge any custom tracks saved for this preset
@@ -267,8 +270,7 @@ export class AudioService {
     this.grids.set(gs.filter((_, i) => i !== trackIndex));
     this.ties.set(this.ties().filter((_, i) => i !== trackIndex));
 
-    const ch = this.trackChannels[trackIndex];
-    if (ch) { ch.disconnect(); }
+    this.mixer.removeChannel(trackIndex);
     this.trackChannels = this.trackChannels.filter((_, i) => i !== trackIndex);
     this.arpEnabled.set(this.arpEnabled().filter((_, i) => i !== trackIndex));
     this.arpPattern.set(this.arpPattern().filter((_, i) => i !== trackIndex));
@@ -452,12 +454,15 @@ export class AudioService {
   }
 
   private _runLoop(preset: SequencePreset): void {
-    const stepDuration = 30 / preset.bpm;
     const swing = () => this.swingPercentage();
-    let baseTime = this.mixer.ctx.currentTime;
+    // Small offset so the first step isn't scheduled in the past
+    let baseTime = this.mixer.ctx.currentTime + 0.05;
     this.loopId = setInterval(() => {
-      const lookAhead = this.mixer.ctx.currentTime + 0.04;
+      // 100 ms lookahead survives timer jitter and background-tab throttling far better than 40 ms
+      const lookAhead = this.mixer.ctx.currentTime + 0.1;
       while (baseTime < lookAhead) {
+        // Read BPM every step so tempo changes apply while playing. One step = 30 / bpm s (see PRESET-FORMAT.md).
+        const stepDuration = 30 / (this.preset()?.bpm ?? preset.bpm);
         const step = this.currentBeat();
         const swingOffset = (step % 2 !== 0) ? stepDuration * (swing() / 100) * 0.5 : 0;
         const stepTime = baseTime + swingOffset;
@@ -471,7 +476,7 @@ export class AudioService {
           const g = gs[t];
           const channel = this.trackChannels[t];
           if (!g || !channel) continue;
-          const isDrumTrack = track.rowNotes.some(n => /^(Kick|Snare|Hi-Hat|Open Hi-Hat|Tom Low|Tom Mid|Tom High|Ride|Crash|Clap)$/.test(n));
+          const isDrumTrack = track.rowNotes.some(n => DRUM_NAME_RE.test(n));
           const arpOn = !isDrumTrack && this.arpEnabled()?.[t];
           const prevFreq = this.lastFreqByTrack.get(t) ?? 0;
           const portSec = this.portamento() > 0 ? this.portamento() / 1000 : undefined;
@@ -482,7 +487,7 @@ export class AudioService {
             const cellVal = g[row]?.[step] ?? 0;
             if (cellVal <= 0) continue;
             const noteName = track.rowNotes[row];
-            const isDrum = /^(Kick|Snare|Hi-Hat|Open Hi-Hat|Tom Low|Tom Mid|Tom High|Ride|Crash|Clap)$/.test(noteName);
+            const isDrum = DRUM_NAME_RE.test(noteName);
             if (!isDrum && step > 0 && tieMatrix[t]?.[row]?.[step]) continue;
             let tieCount = 0;
             if (!isDrum) {
@@ -570,16 +575,17 @@ export class AudioService {
               lastFreq = n.freq;
             };
 
-            const doSample = (n: typeof activeRows[0], time: number, gainScale = 1) => {
+            // Plays the real sample; if it isn't available (no sample set, not loaded yet, or a broken file)
+            // the synth version plays instead so the track never drops out.
+            // The instrument's synth filter sweep is deliberately not applied: recorded samples already have their timbre.
+            const doSample = (n: typeof activeRows[0], time: number, dur: number, gainScale = 1) => {
               const vel = n.velocity * gainScale;
               if (n.isDrum) {
-                this.sampleEngine.playDrum(n.noteName, vel, channel, time);
-              } else if (sampleSetName) {
-                this.sampleEngine.playNote(n.noteName, vel, channel, sampleSetName, time);
-              }
-              const inst = track.instrumentPreset ? INSTRUMENT_PRESETS[track.instrumentPreset] : undefined;
-              if (inst?.filterEnvelope) {
-                this.mixer.triggerTrackFilterEnvelope(t, inst.filterEnvelope.initialCutoff, inst.filterEnvelope.finalCutoff, inst.filterEnvelope.rampDuration, time);
+                if (!this.sampleEngine.playDrum(n.noteName, vel, channel, time)) {
+                  this.drumEngine.triggerNote(this.mixer.ctx, n.noteName, channel, time, vel);
+                }
+              } else if (!sampleSetName || !this.sampleEngine.playNote(n.noteName, vel, channel, sampleSetName, time, dur)) {
+                doSynth(n, time, dur, gainScale);
               }
             };
 
@@ -587,12 +593,10 @@ export class AudioService {
               const nonDrums = activeRows.filter(r => !r.isDrum);
               const drums = activeRows.filter(r => r.isDrum);
               for (const n of drums) {
-                if (n.isDrum) {
-                  if (mode === 'sample' || mode === 'layer') {
-                    this.sampleEngine.playDrum(n.noteName, n.velocity, channel, stepTime);
-                  } else {
-                    this.drumEngine.triggerNote(this.mixer.ctx, n.noteName, channel, stepTime, n.velocity);
-                  }
+                if (mode === 'synth') {
+                  this.drumEngine.triggerNote(this.mixer.ctx, n.noteName, channel, stepTime, n.velocity);
+                } else {
+                  doSample(n, stepTime, stepDuration);
                 }
               }
               if (nonDrums.length >= 2) {
@@ -606,10 +610,10 @@ export class AudioService {
                   if (mode === 'synth') {
                     doSynth(n, noteTime, noteDur);
                   } else if (mode === 'sample') {
-                    doSample(n, noteTime);
+                    doSample(n, noteTime, noteDur);
                   } else {
                     doSynth(n, noteTime, noteDur, 1 - blend);
-                    doSample(n, noteTime, blend);
+                    doSample(n, noteTime, noteDur, blend);
                   }
                 }
               } else {
@@ -617,10 +621,10 @@ export class AudioService {
                   if (mode === 'synth') {
                     doSynth(n, stepTime, (1 + n.tieCount) * stepDuration);
                   } else if (mode === 'sample') {
-                    doSample(n, stepTime);
+                    doSample(n, stepTime, (1 + n.tieCount) * stepDuration);
                   } else {
                     doSynth(n, stepTime, (1 + n.tieCount) * stepDuration, 1 - blend);
-                    doSample(n, stepTime, blend);
+                    doSample(n, stepTime, (1 + n.tieCount) * stepDuration, blend);
                   }
                 }
               }
@@ -635,7 +639,7 @@ export class AudioService {
               }
             } else if (mode === 'sample') {
               for (const n of activeRows) {
-                doSample(n, stepTime);
+                doSample(n, stepTime, (1 + n.tieCount) * stepDuration);
               }
             } else {
               // mode === 'layer'
@@ -643,10 +647,10 @@ export class AudioService {
                 const noteDur = (1 + n.tieCount) * stepDuration;
                 if (n.isDrum) {
                   this.drumEngine.triggerNote(this.mixer.ctx, n.noteName, channel, stepTime, n.velocity * (1 - blend));
-                  this.sampleEngine.playDrum(n.noteName, n.velocity * blend, channel, stepTime);
+                  doSample(n, stepTime, noteDur, blend);
                 } else {
                   doSynth(n, stepTime, noteDur, 1 - blend);
-                  doSample(n, stepTime, blend);
+                  doSample(n, stepTime, noteDur, blend);
                 }
               }
             }
@@ -671,8 +675,8 @@ export class AudioService {
     this.mixer.resume();
     const channel = trackIdx != null && this.trackChannels[trackIdx]
       ? this.trackChannels[trackIdx]
-      : this.trackChannels[0] ?? this.mixer.createChannel('preview', 0.8);
-    const isDrum = ['Kick','Snare','Hi-Hat','Open Hi-Hat','Tom Low','Tom Mid','Tom High','Ride','Crash','Clap'].includes(noteName);
+      : this.trackChannels[0] ?? (this.previewChannel ??= this.mixer.createChannel('preview', 0.8, false));
+    const isDrum = DRUM_NAME_RE.test(noteName);
 
     if (trackIdx != null && !this.retroMode()) {
       const mode = this.perTrackPlaybackMode()[trackIdx] ?? 'synth';
@@ -686,38 +690,29 @@ export class AudioService {
       })();
       const blend = this.perTrackSampleBlend()[trackIdx] ?? 0.5;
 
-      if (mode === 'sample') {
+      if (mode === 'sample' || mode === 'layer') {
+        const gain = mode === 'layer' ? blend : 1;
+        if (mode === 'layer') this._previewSynth(noteName, synthType, velocity * (1 - blend), instrumentPreset, channel, isDrum, trackIdx);
         if (isDrum) {
-          this.sampleEngine.playDrum(noteName, velocity, channel);
-        } else if (sampleSetName) {
-          this.sampleEngine.playNote(noteName, velocity, channel, sampleSetName);
-        }
-        const inst = instrumentPreset ? INSTRUMENT_PRESETS[instrumentPreset] : undefined;
-        if (inst?.filterEnvelope) {
-          this.mixer.triggerTrackFilterEnvelope(trackIdx, inst.filterEnvelope.initialCutoff, inst.filterEnvelope.finalCutoff, inst.filterEnvelope.rampDuration, undefined);
-        }
-        return;
-      }
-      if (mode === 'layer') {
-        if (isDrum) {
-          this.drumEngine.triggerNote(this.mixer.ctx, noteName, channel, undefined, velocity * (1 - blend));
-          this.sampleEngine.playDrum(noteName, velocity * blend, channel);
-        } else {
-          let freq = 0;
-          try { freq = midiToFrequency(noteToMidi(noteName)); } catch { return; }
-          const inst = instrumentPreset ? INSTRUMENT_PRESETS[instrumentPreset] : undefined;
-          if (inst) {
-            this.polySynth.triggerNote(this.mixer.ctx, freq, channel, inst.oscType, undefined, velocity * (1 - blend), undefined, undefined, undefined, inst);
-          } else {
-            this.polySynth.triggerNote(this.mixer.ctx, freq, channel, synthType as OscillatorType, undefined, velocity * (1 - blend));
+          if (!this.sampleEngine.playDrum(noteName, velocity * gain, channel)) {
+            this.drumEngine.triggerNote(this.mixer.ctx, noteName, channel, undefined, velocity * gain);
           }
-          if (sampleSetName) this.sampleEngine.playNote(noteName, velocity * blend, channel, sampleSetName);
+        } else if (sampleSetName) {
+          this.sampleEngine.previewNote(noteName, velocity * gain, channel, sampleSetName).then(played => {
+            if (!played) this._previewSynth(noteName, synthType, velocity * gain, instrumentPreset, channel, false, trackIdx);
+          });
+        } else {
+          this._previewSynth(noteName, synthType, velocity * gain, instrumentPreset, channel, false, trackIdx);
         }
         return;
       }
       // fall through to synth for 'synth' mode
     }
 
+    this._previewSynth(noteName, synthType, velocity, instrumentPreset, channel, isDrum, trackIdx ?? 0);
+  }
+
+  private _previewSynth(noteName: string, synthType: string, velocity: number, instrumentPreset: string | undefined, channel: GainNode, isDrum: boolean, trackIdx = 0): void {
     const inst = instrumentPreset ? INSTRUMENT_PRESETS[instrumentPreset] : undefined;
     if (isDrum) {
       this.drumEngine.triggerNote(this.mixer.ctx, noteName, channel, undefined, velocity);
@@ -726,7 +721,7 @@ export class AudioService {
       try { freq = midiToFrequency(noteToMidi(noteName)); } catch { return; }
       this.polySynth.triggerNote(this.mixer.ctx, freq, channel, inst.oscType, undefined, velocity, undefined, undefined, undefined, inst);
       if (inst.filterEnvelope) {
-        this.mixer.triggerTrackFilterEnvelope(0, inst.filterEnvelope.initialCutoff, inst.filterEnvelope.finalCutoff, inst.filterEnvelope.rampDuration, undefined);
+        this.mixer.triggerTrackFilterEnvelope(trackIdx, inst.filterEnvelope.initialCutoff, inst.filterEnvelope.finalCutoff, inst.filterEnvelope.rampDuration, undefined);
       }
     } else if (synthType === 'square') {
       let freq = 0;
@@ -765,6 +760,7 @@ export class AudioService {
     const copy = [...this.perTrackSampleSet()];
     copy[trackIdx] = sampleSet;
     this.perTrackSampleSet.set(copy);
+    if (!this.retroMode()) this._preloadActiveSampleSets().catch(() => {});
   }
 
   setTrackSampleBlend(trackIdx: number, blend: number): void {
@@ -790,7 +786,9 @@ export class AudioService {
       const instPreset = track.instrumentPreset ? INSTRUMENT_PRESETS[track.instrumentPreset] : undefined;
       if (instPreset?.sampleSet) sets.add(instPreset.sampleSet);
     }
-    const promises: Promise<void>[] = [];
+    const promises: Promise<unknown>[] = [];
+    const drumNames = new Set(preset.tracks.flatMap(t => t.rowNotes).filter(n => DRUM_NAME_RE.test(n)));
+    if (drumNames.size) promises.push(this.sampleEngine.preloadDrums([...drumNames]));
     for (const setName of sets) {
       if (!this.sampleEngine.isSampleSetLoaded(setName)) {
         promises.push(this.sampleEngine.preloadSampleSet(setName));

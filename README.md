@@ -1,59 +1,38 @@
-# DevGotchi
+# Loomin
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.3.
+A browser-based step sequencer that plays **real instrument samples**, **retro synth voices**, or **both layered together**, with per-track delay/reverb sends, filters, swing, ties, an arpeggiator and MusicXML import. Built with Angular (signals) + Tailwind, running entirely on the Web Audio API. No server: samples stream from a CDN and are cached in the browser.
 
-## Development server
-
-To start a local development server, run:
+## Run it
 
 ```bash
-ng serve
+npm install
+npm start          # http://localhost:4200
+npm test           # unit tests (Vitest)
+npm run build      # production build → dist/dev-gotchi/browser (deployed by Vercel)
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## How sound is produced
 
-## Code scaffolding
+Every track has a **playback mode**:
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+| Mode | What you hear |
+|------|---------------|
+| `synth` | Oscillator voices (sine / triangle / square / sawtooth / distortion) shaped by the instrument preset's ADSR, filter and vibrato. |
+| `sample` | Recorded samples from the track's sample set. Any note without a usable sample falls back to the synth voice, so a track never goes silent. |
+| `layer` | Synth + sample together; `sampleBlend` sets the mix. |
 
-```bash
-ng generate component component-name
-```
+The global **RETRO** toggle forces every track to synth.
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Code map
 
-```bash
-ng generate --help
-```
+| Path | Role |
+|------|------|
+| `src/app/services/audio.service.ts` | Transport clock (look-ahead scheduler), track state, per-track mode dispatch |
+| `src/app/services/master-mixer.service.ts` | Per-track channels (fader → filter → delay/reverb sends), master bus, LFO |
+| `src/app/services/instruments/` | Poly / bass / distortion synths, drum synth, sample engine |
+| `src/app/data/sample-manifests.ts` | Which sample files exist, at which pitch |
+| `src/app/data/playlist-presets.ts` | Built-in songs and instrument presets |
+| `src/app/utils/music-theory.ts` | Notes, scales, chords (single source of truth) |
+| `src/app/utils/musicxml-parser.ts` | MusicXML / MXL import |
 
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+More detail: [`AI.md`](AI.md) (architecture and instrument catalogue), [`PRESET-FORMAT.md`](PRESET-FORMAT.md), [`loomin-composer-guide.md`](loomin-composer-guide.md), [`docs/sample-library.md`](docs/sample-library.md).

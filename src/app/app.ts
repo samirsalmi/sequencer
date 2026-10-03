@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AudioService } from './services/audio.service';
-import { getChordNotes } from './services/synth-engine.service';
+import { CHROMATIC, getChordNotes, getScaleNotes, midiToNote, normalizeNote } from './utils/music-theory';
 import { INSTRUMENT_PRESETS, PLAYLIST_PRESETS, SequencePreset, StepResolution } from './data/playlist-presets';
 import { SAMPLE_SETS } from './data/sample-manifests';
 import { validateStepAlignment, stepsPerMeasure } from './utils/time-signature';
@@ -17,17 +17,15 @@ function saveUserSongs(songs: SequencePreset[]): void {
 }
 
 // ── Music helpers ─────────────────────────────────────────────────────────────
-const CHROMATIC = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-
-function pentatonicNotes(root: string, octave = 4): string[] {
-  const idx = CHROMATIC.indexOf(root);
-  if (idx === -1) return ['C4','D4','E4','G4','A4'];
-  return [0, 2, 4, 7, 9].map(i => `${CHROMATIC[(idx + i) % 12]}${octave}`);
+/** Canonical sharp spelling for pitched notes ("Bb3" → "A#3"); drum names pass through. */
+function normalizeNoteOrDrum(n: string): string {
+  return normalizeNote(n) ?? n;
 }
 
-function midiToNote(midi: number): string {
-  const octave = Math.floor(midi / 12) - 1;
-  return `${CHROMATIC[midi % 12]}${octave}`;
+/** Default row notes for a new melodic track: one octave of the song's scale. */
+function defaultRowNotes(root: string, scale: string): string[] {
+  const notes = getScaleNotes(root, scale, 4);
+  return notes.length ? notes : getScaleNotes('C', 'pentatonic', 4);
 }
 
 // ── MXL (ZIP) extraction ───────────────────────────────────────────────────────
@@ -116,8 +114,10 @@ export class App implements OnInit {
   }
 
   // Reset pagination when switching presets
+  // (keyed on the song name only — grid edits also update the preset signal)
+  private readonly _presetName = computed(() => this.audio.preset()?.name);
   private readonly _resetOffset = effect(() => {
-    this.audio.preset();
+    this._presetName();
     this.gridOffset.set(0);
   });
 
@@ -146,12 +146,14 @@ export class App implements OnInit {
     }
     return '';
   })
-  readonly rootNotes = CHROMATIC;
+  readonly rootNotes = [...CHROMATIC];
   readonly scaleOptions = [
     { label: 'Major',         value: 'major' },
     { label: 'Natural Minor', value: 'naturalMinor' },
+    { label: 'Harmonic Minor', value: 'harmonicMinor' },
     { label: 'Dorian',        value: 'dorian' },
     { label: 'Pentatonic',    value: 'pentatonic' },
+    { label: 'Minor Pentatonic', value: 'minorPentatonic' },
   ];
 
   openNewSongModal(): void {
@@ -210,7 +212,7 @@ export class App implements OnInit {
       this.audio.loadPreset(songs[userIdx]);
     } else {
       // ── Create mode: build a brand new song ──
-      const notes     = pentatonicNotes(this.newSongRoot);
+      const notes     = defaultRowNotes(this.newSongRoot, this.newSongScale);
       const sc        = Math.max(1, this.newSongSteps);
       const emptyGrid = notes.map(() => Array(sc).fill(0));
       const song: SequencePreset = {
@@ -273,11 +275,7 @@ export class App implements OnInit {
   readonly importMeasuresStr = computed(() => {
     const r = this.importResult();
     if (!r) return '';
-    const ts = r.timeSignature || '4/4';
-    const parts = ts.split('/');
-    const beats = parseInt(parts[0], 10) || 4;
-    const beatType = parseInt(parts[1], 10) || 4;
-    const spm = beats * (16 / beatType);
+    const spm = stepsPerMeasure(this.importTimeSig(), this.importStepRes());
     const measures = (r.stepCount || 0) / spm;
     return Number.isInteger(measures) ? String(measures) : measures.toFixed(1);
   });
@@ -398,7 +396,7 @@ export class App implements OnInit {
   ];
 
   readonly noteRangePresets: { label: string; minMidi: number; maxMidi: number }[] = [
-    { label: 'Pentatonic (default)', minMidi: -1, maxMidi: -1 },
+    { label: 'Song scale (default)', minMidi: -1, maxMidi: -1 },
     { label: 'All 88 keys (A0–C8)',     minMidi: 21, maxMidi: 108 },
     { label: 'Bass (A0–E3)',            minMidi: 21, maxMidi: 52 },
     { label: 'Mid (F3–B4)',             minMidi: 53, maxMidi: 71 },
@@ -442,14 +440,14 @@ export class App implements OnInit {
     if (instrument === 'drums') {
       this.newTrackNotes = 'Kick, Snare, Hi-Hat, Open Hi-Hat';
     } else {
-      this.newTrackNotes = pentatonicNotes(root).join(', ');
+      this.newTrackNotes = defaultRowNotes(root, this.audio.preset()?.scale ?? 'pentatonic').join(', ');
     }
   }
 
   fillRangePreset(preset: { label: string; minMidi: number; maxMidi: number }): void {
     if (preset.minMidi === -1) {
       const root = this.audio.preset()?.rootNote ?? 'C';
-      this.newTrackNotes = pentatonicNotes(root).join(', ');
+      this.newTrackNotes = defaultRowNotes(root, this.audio.preset()?.scale ?? 'pentatonic').join(', ');
       return;
     }
     const notes: string[] = [];
@@ -469,7 +467,8 @@ export class App implements OnInit {
 
   createTrack(): void {
     const name  = this.newTrackName.trim() || 'My Track';
-    const notes = this.newTrackNotes.split(',').map(n => n.trim()).filter(n => n.length > 0);
+    const notes = this.newTrackNotes.split(',').map(n => n.trim()).filter(n => n.length > 0)
+      .map(n => normalizeNoteOrDrum(n));
     if (!notes.length) return;
     const inst = this.newTrackInstrument || undefined;
     this.audio.addTrack(name, inst ? (INSTRUMENT_PRESETS[inst]?.oscType as SequencePreset['tracks'][0]['synthType']) : this.newTrackSynth, notes, inst);
