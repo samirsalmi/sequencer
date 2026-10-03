@@ -1,0 +1,6 @@
+{
+  "framework": "angular",
+  "buildCommand": "ng build",
+  "outputDirectory": "dist/dev-gotchi/browser",
+  "installCommand": "npm install"
+}

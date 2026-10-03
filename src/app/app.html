@@ -1,0 +1,937 @@
+<div class="min-h-screen bg-neutral-950 text-white font-mono flex flex-col">
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <div class="flex flex-col sm:flex-row items-center justify-between px-4 sm:px-8 py-3 sm:py-4 border-b border-neutral-800 flex-shrink-0 gap-3">
+    <div class="flex items-center gap-4">
+      <h1 class="text-lg font-bold tracking-widest text-cyan-400">◈ LOOMIN</h1>
+      <div class="h-4 w-px bg-neutral-700"></div>
+      <div class="flex flex-col leading-tight">
+        <span class="text-sm font-bold text-white">{{ audio.preset()?.name ?? '—' }}</span>
+        <span class="text-[10px] text-cyan-400 tracking-wide">{{ audio.preset()?.artist ?? '' }}</span>
+      </div>
+    </div>
+    <div class="flex flex-wrap items-center justify-center sm:justify-end gap-3 sm:gap-4">
+      <div class="flex flex-wrap items-center justify-center gap-2 text-[10px] text-neutral-500">
+        <span class="px-2 py-0.5 bg-neutral-800 rounded border border-neutral-700">
+          {{ audio.preset()?.bpm ?? '—' }} BPM
+        </span>
+        <span class="px-2 py-0.5 bg-neutral-800 rounded border border-neutral-700">
+          {{ audio.preset()?.rootNote ?? '—' }}
+        </span>
+        <span class="px-2 py-0.5 bg-neutral-800 rounded border border-neutral-700">
+          {{ audio.timeSignature() }}
+        </span>
+        <div class="flex items-center gap-1">
+          <input type="number" min="1" step="1"
+            class="w-20 px-2 py-0.5 bg-neutral-800 rounded border border-neutral-700 text-neutral-400 text-center focus:outline-none focus:border-cyan-500 transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            [ngModel]="audio.stepCount()"
+            (ngModelChange)="changeStepCount($event)" />
+          <span class="text-[10px] text-neutral-500">STEPS</span>
+        </div>
+        <span class="text-[9px] text-neutral-600" [class.text-amber-500]="audio.stepCount() % audio.stepsPerMeasure() !== 0">
+          {{ (audio.stepCount() / audio.stepsPerMeasure()).toFixed(1) }} measures
+        </span>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[9px] text-neutral-600">SWING</span>
+          <input type="range" min="0" max="75" step="1"
+            class="w-16 h-1 accent-cyan-500 cursor-pointer"
+            [ngModel]="audio.swingPercentage()"
+            (ngModelChange)="audio.swingPercentage.set($event)" />
+          <span class="text-[10px] text-cyan-400 w-4">{{ audio.swingPercentage() }}%</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="px-2.5 py-1.5 rounded text-[10px] font-bold border transition-all duration-150"
+          [class.bg-amber-900]="audio.retroMode()" [class.border-amber-600]="audio.retroMode()"
+          [class.text-amber-400]="audio.retroMode()"
+          [class.bg-neutral-800]="!audio.retroMode()" [class.border-neutral-600]="!audio.retroMode()"
+          [class.text-neutral-500]="!audio.retroMode()"
+          (click)="audio.setRetroMode(!audio.retroMode())">
+          {{ audio.retroMode() ? '● RETRO' : '○ RETRO' }}
+        </button>
+        <button id="play-btn" class="px-5 py-1.5 rounded text-sm font-bold border transition-all duration-150"
+          [class.bg-fuchsia-600]="audio.isPlaying()" [class.border-fuchsia-500]="audio.isPlaying()"
+          [class.bg-amber-700]="audio.isPreloading()" [class.border-amber-500]="audio.isPreloading()"
+          [class.bg-neutral-800]="!audio.isPlaying() && !audio.isPreloading()" [class.border-neutral-600]="!audio.isPlaying() && !audio.isPreloading()"
+          (click)="audio.togglePlay()">
+          @if (audio.isPreloading()) {
+            ⏳ {{ audio.preloadProgress() }}%
+          } @else if (audio.isPlaying()) {
+            ■ STOP
+          } @else {
+            ▶ PLAY
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Playlist Selector ────────────────────────────────────────────────── -->
+  <div class="px-4 sm:px-8 pt-4 sm:pt-5 pb-2 flex-shrink-0">
+    <div class="flex items-center justify-between mb-3">
+      <div class="text-[9px] text-neutral-600 tracking-[0.2em] uppercase">Playlist</div>
+      <!-- New Song button -->
+      <button id="new-song-btn"
+        class="flex items-center gap-1.5 px-3 py-1 rounded text-[10px] font-bold border border-dashed border-fuchsia-700 text-fuchsia-500 hover:border-fuchsia-400 hover:text-fuchsia-300 transition-all duration-150"
+        (click)="openNewSongModal()">
+        <span class="text-sm leading-none">+</span> New Song
+      </button>
+      <!-- Import MusicXML button -->
+      <button id="import-musicxml-btn"
+        class="flex items-center gap-1.5 px-3 py-1 rounded text-[10px] font-bold border border-dashed border-cyan-700 text-cyan-500 hover:border-cyan-400 hover:text-cyan-300 transition-all duration-150 ml-2"
+        (click)="openImportModal()">
+        <span class="text-sm leading-none">↗</span> Import MusicXML "BETA"
+      </button>
+    </div>
+
+    <!-- fade masks at both edges -->
+    <div class="relative">
+      <div
+        class="pointer-events-none absolute left-0 top-0 bottom-2 w-8 z-10 bg-gradient-to-r from-neutral-950 to-transparent">
+      </div>
+      <div
+        class="pointer-events-none absolute right-0 top-0 bottom-2 w-8 z-10 bg-gradient-to-l from-neutral-950 to-transparent">
+      </div>
+      <div class="flex gap-3 overflow-x-auto pb-3 neon-scrollbar scroll-smooth px-1">
+        @for (preset of playlists(); track preset.name; let i = $index) {
+        <div class="relative flex-shrink-0 group">
+          <button class="w-44 px-4 py-3 rounded-xl border text-left transition-all duration-200 hover:scale-[1.02]"
+            [class.border-fuchsia-500]="selectedPresetIndex() === i"
+            [class.bg-fuchsia-950]="selectedPresetIndex() === i"
+            [class.border-neutral-700]="selectedPresetIndex() !== i"
+            [class.bg-neutral-900]="selectedPresetIndex() !== i" (click)="selectPreset(i)">
+            <!-- User badge -->
+
+            <div class="text-xs font-bold text-white leading-tight truncate">@if (i >= playlists().length -
+              userSongs().length) {
+              <span
+                class="text-[8px] px-1.5 py-0.5 bg-fuchsia-900/60 border border-fuchsia-700 text-fuchsia-400 rounded mb-1 inline-block">✦
+              </span>
+              } {{ preset.name }}
+            </div>
+            <div class="text-[10px] text-cyan-400 mt-0.5 truncate">{{ preset.artist }}</div>
+            <div class="flex gap-1.5 mt-2">
+              <span class="text-[9px] px-1.5 py-0.5 bg-neutral-800 text-neutral-400 rounded">{{ preset.bpm }}</span>
+              <span class="text-[9px] px-1.5 py-0.5 bg-neutral-800 text-neutral-400 rounded">{{ preset.rootNote
+                }}</span>
+              <span class="text-[9px] px-1.5 py-0.5 bg-neutral-800 text-neutral-400 rounded">{{ preset.timeSignature ||
+                '4/4' }}</span>
+              <span class="text-[9px] px-1.5 py-0.5 bg-neutral-800 text-neutral-400 rounded">{{ preset.tracks.length
+                }}trk</span>
+            </div>
+          </button>
+
+          <!-- User song actions -->
+          @if (i >= playlists().length - userSongs().length) {
+          <button
+            class="absolute top-2 right-8 w-5 h-5 flex items-center justify-center rounded-full bg-neutral-800/80 border border-neutral-700 text-neutral-400 hover:bg-neutral-700 hover:text-white text-[9px] opacity-0 group-hover:opacity-100 transition-all"
+            title="Edit song" (click)="openEditSongModal(i, $event)">⚙</button>
+          <button
+            class="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full bg-rose-900/80 border border-rose-700 text-rose-400 hover:bg-rose-700 hover:text-white text-[9px] opacity-0 group-hover:opacity-100 transition-all"
+            title="Delete song" (click)="deleteSong(i, $event)">✕</button>
+          }
+        </div>
+        }
+      </div>
+    </div>
+
+    <!-- ── Divider ──────────────────────────────────────────────────────────── -->
+    <div class="h-px bg-neutral-800 mx-4 sm:mx-8 my-1 flex-shrink-0"></div>
+
+    <!-- ── Track Tabs ───────────────────────────────────────────────────────── -->
+    <div class="flex items-center gap-3 px-4 sm:px-8 pt-3 sm:pt-4 pb-2 flex-shrink-0 overflow-x-auto no-scrollbar">
+      @for (track of audio.preset()?.tracks; track track.trackName; let i = $index) {
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <button class="px-4 py-1.5 rounded text-xs font-bold border transition-all flex items-center gap-1.5"
+          [class.border-cyan-500]="activeTrackIndex() === i" [class.text-cyan-400]="activeTrackIndex() === i"
+          [class.bg-neutral-800]="activeTrackIndex() === i" [class.border-neutral-700]="activeTrackIndex() !== i"
+          [class.text-neutral-500]="activeTrackIndex() !== i" (click)="switchTrack(i)">
+          @if (track.instrumentPreset) {
+          <span class="text-[10px]">{{ INSTRUMENT_PRESETS[track.instrumentPreset]?.label?.slice(0,2) }}</span>
+          }
+          {{ track.trackName }}
+          @if (track.instrumentPreset) {
+          <span class="text-[8px] px-1 py-0.5 rounded bg-fuchsia-900/40 border border-fuchsia-700/50 text-fuchsia-400">{{ INSTRUMENT_PRESETS[track.instrumentPreset]?.name }}</span>
+          }
+        </button>
+
+        <!-- Delete button — only on user-created tracks -->
+        @if (i >= audio.originalTrackCount()) {
+        <button
+          class="w-5 h-5 flex items-center justify-center rounded text-[10px] font-bold bg-rose-900/60 border border-rose-700 text-rose-400 hover:bg-rose-700 hover:text-white transition-all"
+          title="Delete track" (click)="deleteTrack(i)">✕</button>
+        }
+      </div>
+      }
+
+      <!-- + New Track button -->
+      <button id="new-track-btn"
+        class="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold border border-dashed border-neutral-600 text-neutral-500 hover:border-cyan-500 hover:text-cyan-400 transition-all duration-150"
+        (click)="openNewTrackModal()">
+        <span class="text-base leading-none">+</span> New Track
+      </button>
+    </div>
+
+    <!-- ── Arp Controls ──────────────────────────────────────────────────────── -->
+    <div class="flex items-center gap-4 px-4 sm:px-8 py-1 flex-shrink-0">
+      <button class="px-3 py-1 rounded text-[10px] font-bold border transition-all"
+        [class.bg-fuchsia-900]="audio.arpEnabled()[activeTrackIndex()]"
+        [class.border-fuchsia-500]="audio.arpEnabled()[activeTrackIndex()]"
+        [class.text-fuchsia-400]="audio.arpEnabled()[activeTrackIndex()]"
+        [class.bg-neutral-800]="!audio.arpEnabled()[activeTrackIndex()]"
+        [class.border-neutral-700]="!audio.arpEnabled()[activeTrackIndex()]"
+        [class.text-neutral-500]="!audio.arpEnabled()[activeTrackIndex()]"
+        (click)="toggleArp(activeTrackIndex())">
+        {{ audio.arpEnabled()[activeTrackIndex()] ? '● ARP' : '○ ARP' }}
+      </button>
+      @if (audio.arpEnabled()[activeTrackIndex()]) {
+      <select class="px-2 py-1 rounded text-[10px] bg-neutral-800 border border-neutral-700 text-neutral-300 focus:outline-none focus:border-fuchsia-500 appearance-none cursor-pointer"
+        [ngModel]="audio.arpPattern()[activeTrackIndex()]"
+        (ngModelChange)="setArpPattern(activeTrackIndex(), $event)">
+        <option value="up">Up</option>
+        <option value="down">Down</option>
+        <option value="invert">Invert</option>
+        <option value="random">Random</option>
+      </select>
+      }
+      @if (!audio.retroMode()) {
+      <div class="h-4 w-px bg-neutral-700"></div>
+      <!-- Playback Mode -->
+      <div class="flex items-center gap-1.5">
+        <span class="text-[9px] text-neutral-600 tracking-wider">MODE</span>
+        @for (m of playbackModes; track m) {
+        <button class="px-2 py-1 rounded text-[10px] font-bold border transition-all uppercase"
+          [class.bg-cyan-900]="audio.perTrackPlaybackMode()[activeTrackIndex()] === m"
+          [class.border-cyan-500]="audio.perTrackPlaybackMode()[activeTrackIndex()] === m"
+          [class.text-cyan-400]="audio.perTrackPlaybackMode()[activeTrackIndex()] === m"
+          [class.bg-neutral-800]="audio.perTrackPlaybackMode()[activeTrackIndex()] !== m"
+          [class.border-neutral-700]="audio.perTrackPlaybackMode()[activeTrackIndex()] !== m"
+          [class.text-neutral-500]="audio.perTrackPlaybackMode()[activeTrackIndex()] !== m"
+          (click)="audio.setTrackPlaybackMode(activeTrackIndex(), m)">
+          {{ m }}
+        </button>
+        }
+      </div>
+      @if (audio.perTrackPlaybackMode()[activeTrackIndex()] === 'layer') {
+      <div class="flex items-center gap-1.5">
+        <span class="text-[9px] text-neutral-600 tracking-wider">BLEND</span>
+        <input type="range" min="0" max="1" step="0.05"
+          class="w-16 h-1 accent-amber-500 cursor-pointer"
+          [ngModel]="audio.perTrackSampleBlend()[activeTrackIndex()]"
+          (ngModelChange)="audio.setTrackSampleBlend(activeTrackIndex(), $event)" />
+        <span class="text-[10px] text-amber-400 w-8 text-right">
+          {{ (audio.perTrackSampleBlend()[activeTrackIndex()] * 100).toFixed(0) }}%
+        </span>
+      </div>
+      }
+      <!-- Sample set badge -->
+      @let ss = getEffectiveSampleSet(activeTrackIndex());
+      @if (ss) {
+      <span class="text-[8px] px-1.5 py-0.5 rounded bg-amber-900/40 border border-amber-700/50 text-amber-400">
+        {{ SAMPLE_SETS[ss]?.label ?? ss }}
+      </span>
+      }
+      }
+    </div>
+
+    <!-- ── Grid Matrix ───────────────────────────────────────────────────────── -->
+    <div class="flex flex-col px-1 sm:px-8 py-4 gap-2">
+      <div class="flex items-center gap-2 text-[10px] text-neutral-500">
+        <button (click)="scrollLeft()"
+          [class.opacity-30]="!canScrollLeft()"
+          [class.cursor-pointer]="canScrollLeft()"
+          [class.cursor-default]="!canScrollLeft()"
+          class="px-2 py-0.5 border border-neutral-700 rounded hover:border-neutral-500 transition-colors select-none">
+          ◀
+        </button>
+        <span class="tabular-nums text-neutral-400">
+          {{ visibleStart() }}–{{ visibleEnd() }}
+          / {{ audio.stepCount() }}
+        </span>
+        <button (click)="scrollRight()"
+          [class.opacity-30]="!canScrollRight()"
+          [class.cursor-pointer]="canScrollRight()"
+          [class.cursor-default]="!canScrollRight()"
+          class="px-2 py-0.5 border border-neutral-700 rounded hover:border-neutral-500 transition-colors select-none">
+          ▶
+        </button>
+      </div>
+      <div class="flex">
+        <!-- Note labels: sticky left within horizontal scroll -->
+        <div class="flex flex-col flex-shrink-0 sticky left-0 z-20 bg-neutral-950">
+          <div class="h-4 w-12"></div>
+          @for (note of activeNotes(); track note) {
+          <div class="h-8 flex items-center pr-2 text-[10px] text-neutral-500">{{ note }}</div>
+          }
+        </div>
+        <!-- Horizontally scrollable area -->
+        <div class="overflow-x-auto overflow-y-visible">
+          <div style="min-width: max-content">
+            <!-- Step numbers row: sticky top-0 at page level -->
+            <div class="flex sticky top-0 z-10 bg-neutral-950">
+              @for (step of visibleSteps(); track step) {
+              <div class="flex flex-col"
+                [class.border-l-2]="step > 0 && audio.isMeasureStart(step)"
+                [class.border-neutral-500]="step > 0 && audio.isMeasureStart(step)"
+                [class.pl-0.5]="step > 0 && audio.isMeasureStart(step)"
+                [class.border-l]="step > 0 && !audio.isMeasureStart(step) && audio.isBeatStart(step)"
+                [class.border-neutral-700]="step > 0 && !audio.isMeasureStart(step) && audio.isBeatStart(step)">
+                <span class="w-8 text-center text-[10px] text-neutral-600 h-4"
+                  [class.text-neutral-400]="audio.isMeasureStart(step)"
+                  [class.font-bold]="audio.isMeasureStart(step)">{{ step + 1 }}</span>
+              </div>
+              }
+            </div>
+            <!-- Grid cells -->
+            <div class="flex">
+              @for (step of visibleSteps(); track step) {
+              <div class="flex flex-col"
+                [class.border-l-2]="step > 0 && audio.isMeasureStart(step)"
+                [class.border-neutral-500]="step > 0 && audio.isMeasureStart(step)"
+                [class.pl-0.5]="step > 0 && audio.isMeasureStart(step)"
+                [class.border-l]="step > 0 && !audio.isMeasureStart(step) && audio.isBeatStart(step)"
+                [class.border-neutral-700]="step > 0 && !audio.isMeasureStart(step) && audio.isBeatStart(step)">
+                @for (note of activeNotes(); track note; let row = $index) {
+                @let vel = audio.getVelocity(activeTrackIndex(), row, step);
+                @let tied = step > 0 && audio.getTie(activeTrackIndex(), row, step);
+                @let hasFwdTie = step + 1 < audio.stepCount() && audio.getTie(activeTrackIndex(), row, step + 1);
+                <div class="w-8 h-8 rounded border cursor-pointer transition-all duration-75 hover:brightness-125"
+                  [class.border-cyan-500]="vel > 0 && vel < 1 && !tied"
+                  [class.bg-cyan-600/30]="vel > 0 && vel < 1 && !tied"
+                  [class.border-cyan-300]="vel === 1 && !tied"
+                  [class.bg-cyan-400/30]="vel === 1 && !tied"
+                  [class.shadow-sm]="vel === 1 && !tied"
+                  [class.shadow-cyan-400/40]="vel === 1 && !tied"
+                  [class.border-cyan-700]="tied"
+                  [class.bg-cyan-800/25]="tied"
+                  [class.border-r-cyan-400]="hasFwdTie && !tied"
+                  [class.border-r-2]="hasFwdTie && !tied"
+                  [class.border-neutral-700]="vel === 0 && !tied"
+                  [class.bg-neutral-900]="vel === 0 && !tied"
+                  [class.ring-2]="audio.currentBeat() === step" [class.ring-fuchsia-500]="audio.currentBeat() === step"
+                  (click)="handleGridClick($event, activeTrackIndex(), row, step)">
+                </div>
+                }
+              </div>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FX Panel ─────────────────────────────────────────────────────────── -->
+    <div class="px-4 sm:px-8 pb-4">
+      <button class="flex items-center gap-2 text-[9px] text-neutral-500 tracking-[0.2em] uppercase hover:text-cyan-400 transition-colors"
+        (click)="showFXPanel.set(!showFXPanel())">
+        <span class="text-xs">{{ showFXPanel() ? '▼' : '▶' }}</span> FX Bus
+      </button>
+      @if (showFXPanel()) {
+      <div class="mt-3 p-3 sm:p-4 bg-neutral-900 border border-neutral-800 rounded-xl space-y-4 max-w-full sm:max-w-xl">
+        <!-- Track sends -->
+        <div>
+          <div class="text-[10px] text-neutral-500 mb-2">Track Sends — {{ audio.preset()?.tracks?.[activeTrackIndex()]?.trackName ?? '—' }}</div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-[10px] text-neutral-600 w-20">Delay Send</span>
+            <input type="range" min="0" max="1" step="0.01"
+              class="flex-1 h-1 accent-cyan-500 cursor-pointer"
+              [ngModel]="audio.getDelaySend(activeTrackIndex())"
+              (ngModelChange)="audio.setTrackFxSend(activeTrackIndex(), $event, audio.getReverbSend(activeTrackIndex()))" />
+            <span class="text-[10px] text-cyan-400 w-8 text-right">{{ audio.getDelaySend(activeTrackIndex()).toFixed(2) }}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-[10px] text-neutral-600 w-20">Reverb Send</span>
+            <input type="range" min="0" max="1" step="0.01"
+              class="flex-1 h-1 accent-cyan-500 cursor-pointer"
+              [ngModel]="audio.getReverbSend(activeTrackIndex())"
+              (ngModelChange)="audio.setTrackFxSend(activeTrackIndex(), audio.getDelaySend(activeTrackIndex()), $event)" />
+            <span class="text-[10px] text-cyan-400 w-8 text-right">{{ audio.getReverbSend(activeTrackIndex()).toFixed(2) }}</span>
+          </div>
+        </div>
+        <div class="h-px bg-neutral-800"></div>
+        <!-- Global FX controls -->
+        <div>
+          <div class="text-[10px] text-neutral-500 mb-2">Global FX</div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-[10px] text-neutral-600 w-20">Delay Time</span>
+            <input type="range" min="0.05" max="1" step="0.01"
+              class="flex-1 h-1 accent-fuchsia-500 cursor-pointer"
+              [ngModel]="audio.delayTime()"
+              (ngModelChange)="audio.setDelayTime($event)" />
+            <span class="text-[10px] text-fuchsia-400 w-12 text-right">{{ audio.delayTime().toFixed(2) }}s</span>
+          </div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-[10px] text-neutral-600 w-20">Feedback</span>
+            <input type="range" min="0" max="0.95" step="0.01"
+              class="flex-1 h-1 accent-fuchsia-500 cursor-pointer"
+              [ngModel]="audio.delayFeedback()"
+              (ngModelChange)="audio.setDelayFeedback($event)" />
+            <span class="text-[10px] text-fuchsia-400 w-12 text-right">{{ (audio.delayFeedback() * 100).toFixed(0) }}%</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-[10px] text-neutral-600 w-20">Reverb Mix</span>
+            <input type="range" min="0" max="1" step="0.01"
+              class="flex-1 h-1 accent-fuchsia-500 cursor-pointer"
+              [ngModel]="audio.reverbMix()"
+              (ngModelChange)="audio.setReverbMix($event)" />
+            <span class="text-[10px] text-fuchsia-400 w-12 text-right">{{ (audio.reverbMix() * 100).toFixed(0) }}%</span>
+          </div>
+        </div>
+        <div class="h-px bg-neutral-800"></div>
+        <!-- LFO + Portamento -->
+        <div>
+          <div class="text-[10px] text-neutral-500 mb-2">LFO Filter & Portamento</div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-[10px] text-neutral-600 w-20">LFO Rate</span>
+            <input type="range" min="0.1" max="20" step="0.1"
+              class="flex-1 h-1 accent-cyan-500 cursor-pointer"
+              [ngModel]="audio.lfoRate()"
+              (ngModelChange)="audio.setLfoRate($event)" />
+            <span class="text-[10px] text-cyan-400 w-12 text-right">{{ audio.lfoRate().toFixed(1) }}Hz</span>
+          </div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-[10px] text-neutral-600 w-20">LFO Depth</span>
+            <input type="range" min="0" max="2000" step="10"
+              class="flex-1 h-1 accent-cyan-500 cursor-pointer"
+              [ngModel]="audio.lfoDepth()"
+              (ngModelChange)="audio.setLfoDepth($event)" />
+            <span class="text-[10px] text-cyan-400 w-12 text-right">{{ audio.lfoDepth().toFixed(0) }}</span>
+          </div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-[10px] text-neutral-600 w-20">Filter Cutoff</span>
+            <input type="range" min="200" max="20000" step="100"
+              class="flex-1 h-1 accent-cyan-500 cursor-pointer"
+              [ngModel]="audio.lfoFilterFreq()"
+              (ngModelChange)="audio.setLfoFilterFreq($event)" />
+            <span class="text-[10px] text-cyan-400 w-12 text-right">{{ audio.lfoFilterFreq() > 1000 ? (audio.lfoFilterFreq() / 1000).toFixed(1) + 'k' : audio.lfoFilterFreq().toFixed(0) }}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-[10px] text-neutral-600 w-20">Portamento</span>
+            <input type="range" min="0" max="150" step="1"
+              class="flex-1 h-1 accent-cyan-500 cursor-pointer"
+              [ngModel]="audio.portamento()"
+              (ngModelChange)="audio.portamento.set($event)" />
+            <span class="text-[10px] text-cyan-400 w-12 text-right">{{ audio.portamento() }}ms</span>
+          </div>
+        </div>
+      </div>
+      }
+    </div>
+
+    <!-- ── Active Nodes ─────────────────────────────────────────────────────── -->
+    <div class="px-4 sm:px-8 pb-8 flex-1">
+      <div class="text-[9px] text-neutral-600 tracking-[0.2em] mb-2 uppercase">Active Nodes ({{ activeNodes().length }})
+      </div>
+      <div class="flex flex-wrap gap-2">
+        @for (n of activeNodes(); track n.id) {
+        <span class="px-2 py-1 text-xs bg-neutral-800 border border-neutral-700 rounded flex items-center gap-2">
+          @if (n.trackName === 'Drum Machine') {
+          <span class="text-cyan-400">{{ n.noteName }}</span>
+          } @else {
+          <span class="text-cyan-400">{{ n.frequency.toFixed(1) }}Hz</span>
+          }
+          <span class="text-neutral-500">@{{ n.timeOffset + 1 }}</span>
+          <button class="text-rose-500 hover:text-rose-400 ml-1" (click)="removeNode(n.id)">✕</button>
+        </span>
+        }
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- NEW SONG MODAL                                                             -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  @if (showNewSongModal()) {
+  <div class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 flex items-center justify-center"
+    (click)="cancelNewSong()">
+    <div
+      class="relative z-50 w-full sm:w-[520px] sm:max-w-[95vw] bg-neutral-900 border-0 sm:border border-neutral-700 rounded-none sm:rounded-2xl p-6 sm:p-8 shadow-2xl sm:mx-4 max-h-screen overflow-y-auto"
+      (click)="$event.stopPropagation()">
+      <!-- Header -->
+      <div class="flex items-start justify-between mb-6">
+        <div>
+          <h2 class="text-base font-bold text-white tracking-wide">{{ editingSongIndex() !== null ? '✦ Edit Song' : '✦ Create New Song' }}</h2>
+          <p class="text-[11px] text-neutral-500 mt-0.5">{{ editingSongIndex() !== null ? 'Update your song\'s metadata' : 'Define your song\'s identity — then paint the grid' }}</p>
+        </div>
+        <button
+          class="w-7 h-7 flex items-center justify-center rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white text-xs transition-all"
+          (click)="cancelNewSong()">✕</button>
+      </div>
+
+      <!-- Song name + artist -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <label class="block">
+          <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5 block">Song Name</span>
+          <input id="new-song-name" type="text" [(ngModel)]="newSongName" maxlength="40" placeholder="My Song"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-fuchsia-500 transition-colors" />
+        </label>
+        <label class="block">
+          <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5 block">Artist</span>
+          <input id="new-song-artist" type="text" [(ngModel)]="newSongArtist" maxlength="40" placeholder="Me"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-fuchsia-500 transition-colors" />
+        </label>
+      </div>
+
+      <!-- BPM + Root Note + Scale + Time Signature -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+        <label class="block">
+          <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5 block">BPM</span>
+          <input id="new-song-bpm" type="number" [(ngModel)]="newSongBpm" min="40" max="300"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-fuchsia-500 transition-colors" />
+          <p class="text-[9px] text-neutral-600 mt-1.5 leading-relaxed">
+            <span class="text-neutral-500">Beats per minute — song speed.</span><br>
+            60 = slow ballad<br>
+            120 = pop / rock<br>
+            140+ = dance / EDM
+          </p>
+        </label>
+
+        <label class="block">
+          <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5 block">Root Note</span>
+          <select id="new-song-root" [(ngModel)]="newSongRoot"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-fuchsia-500 transition-colors appearance-none">
+            @for (note of rootNotes; track note) {
+            <option [value]="note">{{ note }}</option>
+            }
+          </select>
+          <p class="text-[9px] text-neutral-600 mt-1.5 leading-relaxed">
+            <span class="text-neutral-500">The tonal home of your song.</span><br>
+            All generated notes will harmonize around this key.<br>
+            <span class="text-fuchsia-700"># = sharp (black piano key)</span>
+          </p>
+        </label>
+
+        <label class="block">
+          <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5 block">Scale</span>
+          <select id="new-song-scale" [(ngModel)]="newSongScale"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-fuchsia-500 transition-colors appearance-none">
+            @for (opt of scaleOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+          <p class="text-[9px] text-neutral-600 mt-1.5 leading-relaxed">
+            @switch (newSongScale) {
+            @case ('major') { ☀️ <span class="text-yellow-600">Bright & uplifting</span> — the happy, classic scale.
+            Great for pop. }
+            @case ('naturalMinor') { 🌙 <span class="text-purple-500">Dark & emotional</span> — tension, drama, depth. }
+            @case ('dorian') { 🎷 <span class="text-blue-400">Jazzy minor</span> — slightly brighter than minor. Soulful
+            & funky. }
+            @case ('pentatonic') { ✨ <span class="text-green-500">5 notes only</span> — impossible to sound wrong.
+            Perfect for beginners. }
+            }
+          </p>
+        </label>
+
+        <label class="block">
+          <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5 block">Time Signature</span>
+          <select id="new-song-ts" [(ngModel)]="newSongTimeSignature"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-fuchsia-500 transition-colors appearance-none">
+            @for (ts of timeSignatureOptions; track ts) {
+            <option [value]="ts">{{ ts }}</option>
+            }
+          </select>
+          <p class="text-[9px] text-neutral-600 mt-1.5 leading-relaxed">
+            <span class="text-neutral-500">Beats per measure.</span><br>
+            4/4 = standard pop<br>
+            3/4 = waltz feel<br>
+            6/8 = compound duple
+          </p>
+        </label>
+      </div>
+
+      <!-- Step Resolution + Length -->
+      <div class="grid grid-cols-2 gap-4 mb-5">
+        <label class="block">
+          <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5 block">Step Resolution</span>
+          <select id="new-song-res" [(ngModel)]="newSongStepResolution"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-fuchsia-500 transition-colors appearance-none">
+            @for (res of stepResolutionOptions; track res) {
+            <option [value]="res">{{ res }} note</option>
+            }
+          </select>
+          <p class="text-[9px] text-neutral-600 mt-1.5 leading-relaxed">
+            <span class="text-neutral-500">What one grid step represents.</span><br>
+            16th = standard detail<br>
+            8th = simpler, compound-friendly
+          </p>
+        </label>
+
+        <label class="block">
+          <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5 block">Length</span>
+          <input id="new-song-length" type="number" min="1" step="1" [(ngModel)]="newSongSteps"
+            [disabled]="editingSongIndex() !== null"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-fuchsia-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" />
+          <p class="text-[9px] text-neutral-600 mt-1.5 leading-relaxed">
+            <span class="text-neutral-500">Total steps in the loop.</span><br>
+            {{ stepAlignmentMessage() }}
+          </p>
+        </label>
+      </div>
+
+      <!-- Info blurb -->
+      @if (editingSongIndex() !== null) {
+      <div
+        class="flex items-start gap-2 bg-cyan-950/40 border border-cyan-900/60 rounded-lg px-4 py-3 mb-6 text-[10px] text-neutral-400">
+        <span class="text-cyan-400 text-base leading-none mt-0.5">✦</span>
+        <span>
+          Editing <span class="text-cyan-400 font-bold">{{ newSongName }}</span> metadata.
+          Track notes and grid patterns are preserved.
+        </span>
+      </div>
+      } @else {
+      <div
+        class="flex items-start gap-2 bg-fuchsia-950/40 border border-fuchsia-900/60 rounded-lg px-4 py-3 mb-6 text-[10px] text-neutral-400">
+        <span class="text-fuchsia-400 text-base leading-none mt-0.5">✦</span>
+        <span>
+          A starter <span class="text-fuchsia-400">pentatonic</span> track in
+          <span class="text-fuchsia-400">{{ newSongRoot }}</span> will be created automatically.
+          After creation use <span class="text-white font-bold">+ New Track</span> to add more layers, then click cells
+          on the grid to paint your pattern.
+        </span>
+      </div>
+      }
+
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <button id="cancel-new-song"
+          class="flex-1 py-2.5 rounded-lg text-sm font-bold border border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500 transition-all"
+          (click)="cancelNewSong()">Cancel</button>
+        <button id="confirm-new-song"
+          class="flex-1 py-2.5 rounded-lg text-sm font-bold bg-fuchsia-600 hover:bg-fuchsia-500 text-white transition-all shadow-lg shadow-fuchsia-900/40"
+          (click)="createSong()">{{ editingSongIndex() !== null ? '✦ Save Changes' : '✦ Create Song' }}</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- IMPORT MUSICXML MODAL                                                       -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  @if (showImportModal()) {
+  <div class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 flex items-center justify-center"
+    (click)="cancelImport()">
+    <div
+      class="relative z-50 w-full sm:w-[520px] sm:max-w-[95vw] bg-neutral-900 border-0 sm:border border-neutral-700 rounded-none sm:rounded-2xl p-6 sm:p-8 shadow-2xl sm:mx-4"
+      (click)="$event.stopPropagation()">
+      <!-- Header -->
+      <div class="flex items-start justify-between mb-6">
+        <div>
+          <h2 class="text-base font-bold text-white tracking-wide">↗ Import MusicXML</h2>
+          <p class="text-[11px] text-neutral-500 mt-0.5">Convert a .musicxml or .mxl file into a new song</p>
+        </div>
+        <button
+          class="w-7 h-7 flex items-center justify-center rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white text-xs transition-all"
+          (click)="cancelImport()">✕</button>
+      </div>
+
+      @if (!importResult()) {
+      <!-- File picker -->
+      <div class="mb-6">
+        <label
+          class="flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed border-neutral-700 hover:border-cyan-600 bg-neutral-850 cursor-pointer transition-all duration-150"
+          [class.bg-cyan-950/20]="importFileName()">
+          <input type="file" accept=".musicxml,.xml,.mxl" (change)="handleImportFile($event)" class="hidden" />
+          @if (importFileName()) {
+          <div class="text-center">
+            <span class="text-2xl text-cyan-500 block mb-2">📄</span>
+            <span class="text-sm text-cyan-400 font-bold">{{ importFileName() }}</span>
+          </div>
+          } @else {
+          <div class="text-center">
+            <span class="text-3xl text-neutral-600 block mb-2">📂</span>
+            <span class="text-xs text-neutral-500">Click to browse — .musicxml or .xml files</span>
+          </div>
+          }
+        </label>
+      </div>
+
+      @if (importStatus() === 'error') {
+      <div class="bg-rose-950/40 border border-rose-900/60 rounded-lg px-4 py-3 mb-4 text-[11px] text-rose-400">
+        {{ importError() }}
+      </div>
+      }
+
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <button
+          class="flex-1 py-2.5 rounded-lg text-sm font-bold border border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500 transition-all"
+          (click)="cancelImport()">Cancel</button>
+      </div>
+      }
+
+      @if (importResult(); as result) {
+      <!-- Editable import result -->
+      <div class="space-y-4 mb-6">
+        <div class="bg-cyan-950/30 border border-cyan-900/60 rounded-lg px-4 py-3">
+          <div class="flex items-center gap-2 text-sm text-cyan-400 font-bold mb-3">
+            <span>✓</span> Parsed — review and edit below
+          </div>
+
+          <!-- Name + Artist -->
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <label class="block">
+              <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1 block">Song Name</span>
+              <input type="text" [ngModel]="importName()" (ngModelChange)="importName.set($event)" maxlength="40"
+                class="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-[12px] text-white focus:outline-none focus:border-cyan-500 transition-colors" />
+            </label>
+            <label class="block">
+              <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1 block">Artist</span>
+              <input type="text" [ngModel]="importArtist()" (ngModelChange)="importArtist.set($event)" maxlength="40"
+                class="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-[12px] text-white focus:outline-none focus:border-cyan-500 transition-colors" />
+            </label>
+          </div>
+
+          <!-- BPM + Root + Scale + Time Sig -->
+          <div class="grid grid-cols-4 gap-3 mb-3">
+            <label class="block">
+              <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1 block">BPM</span>
+              <input type="number" [ngModel]="importBpm()" (ngModelChange)="importBpm.set($event)" min="20" max="400"
+                class="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-[12px] text-white text-center focus:outline-none focus:border-cyan-500 transition-colors" />
+            </label>
+            <label class="block">
+              <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1 block">Root</span>
+              <select [ngModel]="importRoot()" (ngModelChange)="importRoot.set($event)"
+                class="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-[12px] text-white focus:outline-none focus:border-cyan-500 transition-colors appearance-none">
+                @for (note of rootNotes; track note) {
+                <option [value]="note">{{ note }}</option>
+                }
+              </select>
+            </label>
+            <label class="block">
+              <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1 block">Scale</span>
+              <select [ngModel]="importScale()" (ngModelChange)="importScale.set($event)"
+                class="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-[12px] text-white focus:outline-none focus:border-cyan-500 transition-colors appearance-none">
+                @for (opt of scaleOptions; track opt.value) {
+                <option [value]="opt.value">{{ opt.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="block">
+              <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1 block">Time</span>
+              <select [ngModel]="importTimeSig()" (ngModelChange)="importTimeSig.set($event)"
+                class="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-[12px] text-white focus:outline-none focus:border-cyan-500 transition-colors appearance-none">
+                @for (ts of timeSignatureOptions; track ts) {
+                <option [value]="ts">{{ ts }}</option>
+                }
+              </select>
+            </label>
+          </div>
+
+          <!-- Step Resolution + read-only info -->
+          <div class="grid grid-cols-2 gap-3">
+            <label class="block">
+              <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1 block">Step Resolution</span>
+              <select [ngModel]="importStepRes()" (ngModelChange)="importStepRes.set($event)"
+                class="w-full bg-neutral-900 border border-neutral-700 rounded px-2 py-1.5 text-[12px] text-white focus:outline-none focus:border-cyan-500 transition-colors appearance-none">
+                @for (res of stepResolutionOptions; track res) {
+                <option [value]="res">{{ res }} note</option>
+                }
+              </select>
+            </label>
+            <div class="flex items-end gap-4 pb-1.5">
+              <div class="text-[11px]">
+                <span class="text-neutral-500">Tracks:</span>
+                <span class="text-white ml-1">{{ result.tracks.length }}</span>
+              </div>
+              <div class="text-[11px]">
+                <span class="text-neutral-500">Steps:</span>
+                <span class="text-white ml-1">{{ result.stepCount }}</span>
+              </div>
+              <div class="text-[11px]">
+                <span class="text-neutral-500">Measures:</span>
+                <span class="text-white ml-1">{{ importMeasuresStr() }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3 text-[10px] text-neutral-500">
+            @for (track of result.tracks; track track.trackName) {
+            <div>{{ track.trackName }} — {{ track.rowNotes.length }} notes, {{ track.grid.length }} rows</div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <button
+          class="flex-1 py-2.5 rounded-lg text-sm font-bold border border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500 transition-all"
+          (click)="cancelImport()">Cancel</button>
+        <button
+          class="flex-1 py-2.5 rounded-lg text-sm font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-lg shadow-cyan-900/40"
+          (click)="confirmImport()">↗ Import Song</button>
+      </div>
+      }
+    </div>
+  </div>
+  }
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- NEW TRACK MODAL                                                            -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  @if (showNewTrackModal()) {
+  <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 flex items-center justify-center"
+    (click)="cancelNewTrack()">
+    <div
+      class="relative z-50 w-full sm:w-[560px] sm:max-w-[96vw] max-h-screen sm:max-h-[90vh] overflow-y-auto bg-neutral-900 border-0 sm:border border-neutral-700 rounded-none sm:rounded-2xl p-6 sm:p-8 shadow-2xl neon-scrollbar"
+      (click)="$event.stopPropagation()">
+
+      <!-- Header -->
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-base font-bold text-white tracking-wide">✦ New Track</h2>
+          <p class="text-[11px] text-neutral-500 mt-0.5">Add a new instrument layer to this song</p>
+        </div>
+        <button
+          class="w-7 h-7 flex items-center justify-center rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white text-xs transition-all"
+          (click)="cancelNewTrack()">✕</button>
+      </div>
+
+      <!-- Track Name -->
+      <label class="block mb-5">
+        <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5 block">Track Name</span>
+        <input id="new-track-name" type="text" [(ngModel)]="newTrackName" maxlength="28" placeholder="My Track"
+          class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500 transition-colors" />
+      </label>
+
+      <!-- Instrument Preset -->
+      <div class="mb-3">
+        <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5 block">Instrument Preset
+          <span class="text-fuchsia-600">(optional)</span></span>
+        <div class="relative">
+          <select id="new-track-instrument" [ngModel]="newTrackInstrument" (ngModelChange)="onInstrumentChange($event)"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-fuchsia-500 transition-colors appearance-none cursor-pointer">
+            <option value="">— Raw Oscillator (no preset) —</option>
+            @for (opt of instrumentOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
+          <span class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none text-[10px]">▼</span>
+        </div>
+        @if (newTrackInstrument) {
+        <div class="flex items-start gap-3 bg-fuchsia-950/40 border border-fuchsia-900/50 rounded-lg px-4 py-3 mt-2">
+          <span class="text-xl leading-none mt-0.5 flex-shrink-0">🧩</span>
+          <div>
+            <div class="text-xs font-bold text-fuchsia-400 mb-0.5">{{ INSTRUMENT_PRESETS[newTrackInstrument].label }}</div>
+            <div class="text-[10px] text-neutral-400 leading-relaxed">
+              {{ INSTRUMENT_PRESETS[newTrackInstrument].oscType }} wave ·
+              filter: {{ INSTRUMENT_PRESETS[newTrackInstrument].filterEnvelope ? '✔ envelope' : 'static' }} ·
+              distort: {{ INSTRUMENT_PRESETS[newTrackInstrument].distortion ? '✔ ' + (INSTRUMENT_PRESETS[newTrackInstrument].distortion!.amount * 100).toFixed(0) + '%' : 'off' }} ·
+              vibrato: {{ INSTRUMENT_PRESETS[newTrackInstrument].vibrato ? '✔ on' : 'off' }}
+            </div>
+          </div>
+        </div>
+        }
+      </div>
+
+      <!-- Sound Type -->
+      <div class="mb-5">
+        <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5 block">Sound Type
+          <span class="text-neutral-600">(ignored if instrument preset is set)</span></span>
+        <select id="new-track-synth" [(ngModel)]="newTrackSynth" [disabled]="!!newTrackInstrument"
+          class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors appearance-none mb-2 disabled:opacity-30 disabled:cursor-not-allowed">
+          @for (opt of synthOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+
+        <!-- Live description card -->
+        <div class="flex items-start gap-3 bg-neutral-800/70 border border-cyan-900/50 rounded-lg px-4 py-3" [class.opacity-30]="!!newTrackInstrument">
+          <span class="text-xl leading-none mt-0.5 flex-shrink-0">{{ synthDescriptions[newTrackSynth].emoji }}</span>
+          <div>
+            <div class="text-xs font-bold text-cyan-400 mb-0.5">{{ synthDescriptions[newTrackSynth].title }}</div>
+            <div class="text-[10px] text-neutral-400 leading-relaxed">{{ synthDescriptions[newTrackSynth].desc }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes field -->
+      <div class="mb-3">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[10px] text-neutral-500 tracking-[0.15em] uppercase">Notes (comma-separated)</span>
+          <div class="flex items-center gap-2">
+            @if (newTrackInstrument !== 'drums') {
+            <button class="text-[9px] px-2 py-0.5 rounded border border-fuchsia-700 text-fuchsia-500 hover:bg-fuchsia-900/30 transition-all"
+              (click)="fillChord()">✦ Chord</button>
+            }
+            <button class="text-[9px] px-2 py-0.5 rounded border transition-all" [class.border-cyan-600]="showNoteRef()"
+              [class.text-cyan-400]="showNoteRef()" [class.bg-cyan-900/30]="showNoteRef()"
+              [class.border-neutral-700]="!showNoteRef()" [class.text-neutral-500]="!showNoteRef()"
+              (click)="showNoteRef.set(!showNoteRef())">{{ showNoteRef() ? '▲ Hide Reference' : '▼ Note Reference'
+              }}</button>
+          </div>
+        </div>
+        <input id="new-track-notes" type="text" [(ngModel)]="newTrackNotes" placeholder="C4, D4, E4, G4"
+          class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-cyan-500 transition-colors font-mono mb-1.5" />
+        <p class="text-[9px] text-neutral-600">
+          Format: <span class="text-cyan-700">Note + Octave</span> e.g. C4, D#4, F#5 — or drum names below. Each entry =
+          one row on the grid.
+        </p>
+      </div>
+
+      <!-- ── Note Reference Panel (collapsible) ──────────────────────────────── -->
+      @if (showNoteRef()) {
+      <div class="border border-neutral-700 rounded-xl p-4 mb-5 bg-neutral-800/40 space-y-4">
+
+        @if (newTrackInstrument === 'drums') {
+        <!-- Drum Sounds (expanded when drums preset selected) -->
+        <div>
+          <div class="text-[9px] text-neutral-500 tracking-[0.15em] uppercase mb-2">🥁 Drum Sounds — click to add</div>
+          <div class="flex flex-col gap-1.5">
+            @for (drum of drumChips; track drum.name) {
+            <button
+              class="flex items-center gap-3 px-3 py-1.5 rounded-lg border border-neutral-700 text-left hover:border-fuchsia-600 hover:bg-fuchsia-900/20 transition-all group"
+              (click)="appendNote(drum.name)">
+              <span
+                class="text-xs font-bold text-neutral-300 group-hover:text-fuchsia-400 transition-colors w-28 flex-shrink-0">{{
+                drum.name }}</span>
+              <span class="text-[9px] text-neutral-500 group-hover:text-neutral-400">{{ drum.desc }}</span>
+            </button>
+            }
+          </div>
+        </div>
+        } @else {
+        <!-- Range Preset Selector -->
+        <div class="mb-3">
+          <div class="text-[9px] text-neutral-500 tracking-[0.15em] uppercase mb-1.5">Range Preset</div>
+          <select #rangePresetSelect (change)="fillRangePreset(noteRangePresets[rangePresetSelect.selectedIndex])"
+            class="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500 transition-colors appearance-none">
+            @for (preset of noteRangePresets; track preset.label) {
+            <option [value]="preset.label">{{ preset.label }}</option>
+            }
+          </select>
+        </div>
+        <!-- Musical Notes -->
+        <div>
+          <div class="text-[9px] text-neutral-500 tracking-[0.15em] uppercase mb-2">🎵 Musical Notes — click to add
+          </div>
+          <div class="flex flex-wrap gap-1">
+            @for (note of noteChips; track note) {
+            <button
+              class="px-2 py-0.5 rounded text-[10px] font-mono border border-neutral-700 text-neutral-400 hover:border-cyan-500 hover:text-cyan-400 hover:bg-cyan-900/20 transition-all"
+              (click)="appendNote(note)">{{ note }}</button>
+            }
+          </div>
+          <p class="text-[9px] text-neutral-600 mt-2 leading-relaxed">
+            The number is the <span class="text-cyan-700">octave</span> — higher number = higher pitch.
+            <span class="text-neutral-600">C4 = middle C · C5 = one octave up · # = sharp (black piano key)</span>
+          </p>
+        </div>
+
+        }
+      </div>
+      }
+
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <button id="cancel-new-track"
+          class="flex-1 py-2 rounded-lg text-sm font-bold border border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-500 transition-all"
+          (click)="cancelNewTrack()">Cancel</button>
+        <button id="confirm-new-track"
+          class="flex-1 py-2 rounded-lg text-sm font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-lg shadow-cyan-900/40"
+          (click)="createTrack()">✦ Create Track</button>
+      </div>
+    </div>
+  </div>
+  }

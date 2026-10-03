@@ -1,0 +1,40 @@
+/* You can add global styles to this file, and also import other style files */
+@import 'tailwindcss';
+
+/* ── Scrollbar: hidden utility ─────────────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Scrollbar: neon-themed (playlist row) ─────────────────────────────────── */
+.neon-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #a21caf33 transparent; /* fuchsia thumb, transparent track */
+}
+
+.neon-scrollbar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.neon-scrollbar::-webkit-scrollbar-track {
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(103, 232, 249, 0.06) 20%,
+    rgba(217, 70, 239, 0.06) 80%,
+    transparent
+  );
+  border-radius: 9999px;
+  margin: 0 2rem;
+}
+
+.neon-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(to right, #22d3ee55, #d946ef88);
+  border-radius: 9999px;
+  box-shadow: 0 0 6px rgba(217, 70, 239, 0.5);
+  transition: background 0.2s;
+}
+
+.neon-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to right, #22d3ee, #d946ef);
+  box-shadow: 0 0 10px rgba(217, 70, 239, 0.8);
+}
