@@ -1,274 +1,103 @@
-import { midiToNote, noteToMidi } from '../utils/music-theory';
+import { noteToMidi } from '../utils/music-theory';
+
+// Sample library, served from this app (public/samples/). Built by scripts/build-samples.py:
+// leading silence trimmed (notes start exactly on the beat), tails capped, peak-normalized, mono 16-bit FLAC,
+// and every file pitch-checked against its note name. Sources and licenses: public/samples/CREDITS.md
 
 export interface SampleSet {
   name: string;
   label: string;
   basePath: string;
-  /** Sounding MIDI pitch → filename. Only files that really exist (and are at the right pitch) are listed. */
+  /** Sounding MIDI pitch → filename. */
   samples: ReadonlyMap<number, string>;
   /** Lowest / highest sounding MIDI note with a sample. */
   noteRange: [number, number];
-  /** Truncate the playback envelope to this many seconds (cuts excessive tail buildup). */
+  /** Optional cap on total ring time in seconds. */
   releaseSeconds?: number;
   /**
    * Seconds the sound takes to die away after the grid note ends (key / bow / finger released).
-   * Short for bowed and blown instruments, longer for piano and guitar, which keep resonating.
-   * Tie notes in the grid to let them ring longer.
+   * Short for bowed and blown instruments, longer for piano and guitar. Tie notes to let them ring longer.
    */
   noteOffRelease: number;
 }
 
-/** Builds a sample map from the note names used in the filenames. `octaveShift` corrects files whose names are off by octaves. */
-function buildSamples(fileNotes: string[], toFilename: (fileNote: string) => string, octaveShift = 0): Map<number, string> {
-  const map = new Map<number, string>();
-  for (const fileNote of fileNotes) map.set(noteToMidi(fileNote) + 12 * octaveShift, toFilename(fileNote));
-  return map;
+
+const BASE = 'samples/';
+
+function buildSamples(fileNotes: string[]): Map<number, string> {
+  return new Map(fileNotes.map(n => [noteToMidi(n.replace('s', '#')), `${n}.flac`]));
 }
 
-function rangeOf(samples: ReadonlyMap<number, string>): [number, number] {
+function makeSet(name: string, label: string, noteOffRelease: number, fileNotes: string[], releaseSeconds?: number): SampleSet {
+  const samples = buildSamples(fileNotes);
   const keys = [...samples.keys()];
-  return [Math.min(...keys), Math.max(...keys)];
+  return { name, label, basePath: `${BASE}${name}/`, samples, noteRange: [Math.min(...keys), Math.max(...keys)], noteOffRelease, releaseSeconds };
 }
-
-const sharpToS = (note: string) => note.replace('#', 's');
-const midiSpan = (lo: number, hi: number) => Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
-
-// ── Piano: Splendid Grand Piano (Public Domain / AKAI) ───────────────────
-// Steinway D concert grand, FF velocity layer. Files: {midi:03d}_{note}.flac  e.g. 060_C4.flac, 061_Cs4.flac
-// scripts/fill-piano-notes.mjs filled gaps by copying the neighbouring sample WITHOUT re-pitching it, so these
-// files are byte-identical copies that sound at the wrong pitch. They are excluded; the engine re-pitches the
-// nearest real sample instead. (Verified by blob hash + pitch detection.)
-const PIANO_WRONG_PITCH_COPIES = new Set([
-  21, 22, 24, 25, 26, 28, 30, 32, 34, 36, 39, 42, 44, 46, 49, 51, 54, 61, 63, 66, 68, 70, 73, 75, 78, 84,
-]);
-const PIANO_SAMPLES = buildSamples(
-  midiSpan(21, 108).filter(m => !PIANO_WRONG_PITCH_COPIES.has(m)).map(midiToNote),
-  note => `${String(noteToMidi(note)).padStart(3, '0')}_${sharpToS(note)}.flac`,
-);
-
-// ── Guitar: cluesurf/wave (Public Domain) ──────────────────────────────
-// Files: string-{n}-{letter}-as-{note}.wav  e.g. string-6-D-as-D2.wav
-// Sharp notes use 'x' suffix: D#2 → string-6-Dx-as-Dx2.wav
-// Range: D2(38) - C6(84)
-const GUITAR_EXISTING_MIDI = new Set(
-  Array.from({ length: 84 - 38 + 1 }, (_, i) => 38 + i).filter(midi => {
-    if (midi === 48 || midi === 49) return false; // string-5 C3 / C#3 not sampled
-    return true;
-  })
-);
-
-const guitarNoteToFilename = (note: string): string | null => {
-  try {
-    const midi = noteToMidi(note);
-    if (!GUITAR_EXISTING_MIDI.has(midi)) return null;
-    const m = note.match(/^([A-G])(#?)(-?\d+)$/);
-    if (!m) return null;
-    const letter = m[1];
-    const sharp = m[2] === '#' ? 'x' : '';
-    const octave = m[3];
-    const noteName = `${letter}${sharp}${octave}`;
-    const displayLetter = sharp ? `${letter}x` : letter;
-    const stringNum = guessGuitarString(midi);
-    return `string-${stringNum}-${displayLetter}-as-${noteName}.wav`;
-  } catch {
-    return null;
-  }
-};
-
-function guessGuitarString(midi: number): number {
-  if (midi >= 64) return 1;  // E4+
-  if (midi >= 59) return 2;  // B3+
-  if (midi >= 55) return 3;  // G3+
-  if (midi >= 50) return 4;  // D3+
-  if (midi >= 45) return 5;  // A2+
-  return 6;                   // E2- / D2
-}
-
-// ── Bass: cluesurf/wave (Public Domain) ────────────────────────────────
-// Same naming convention as guitar
-// Range: E1(28) - G3(55)
-// NOTE: the guitar/ and bass/ WAVs in samirsalmi/samples are stored with Git LFS, so the CDN serves 132-byte
-// pointer files instead of audio. They fail to decode and the engine falls back to the synth until real files
-// are committed (see docs/sample-library.md).
-const bassNoteToFilename = (note: string): string | null => {
-  try {
-    const midi = noteToMidi(note);
-    if (midi < 28 || midi > 55) return null;
-    const m = note.match(/^([A-G])(#?)(-?\d+)$/);
-    if (!m) return null;
-    const letter = m[1];
-    const sharp = m[2] === '#' ? 'x' : '';
-    const octave = m[3];
-    const noteName = `${letter}${sharp}${octave}`;
-    const displayLetter = sharp ? `${letter}x` : letter;
-    const stringNum = guessBassString(midi);
-    return `string-${stringNum}-${displayLetter}-as-${noteName}.wav`;
-  } catch {
-    return null;
-  }
-};
-
-function guessBassString(midi: number): number {
-  if (midi >= 43) return 1;  // G2+
-  if (midi >= 38) return 2;  // D2+
-  if (midi >= 33) return 3;  // A1+
-  return 4;                   // E1-
-}
-
-const GUITAR_SAMPLES = buildSamples([...GUITAR_EXISTING_MIDI].map(midiToNote), n => guitarNoteToFilename(n)!);
-const BASS_SAMPLES = buildSamples(midiSpan(28, 55).map(midiToNote), n => bassNoteToFilename(n)!);
-
-// ── Drums: teropa/drumkit ──────────────────────────────────────────────
-// Maps drum names to filenames (MP3 from teropa/drumkit, saved in kebab-case)
-const drumFiles: Record<string, string> = {
-  'Kick': 'kick.mp3',
-  'Snare': 'snare.mp3',
-  'Hi-Hat': 'hat-closed.mp3',
-  'Open Hi-Hat': 'hat-open.mp3',
-  'Tom Low': 'tom-low.mp3',
-  'Tom Mid': 'tom-mid.mp3',
-  'Tom High': 'tom-high.mp3',
-  'Ride': 'ride.mp3',
-  'Crash': 'crash.mp3',
-};
-
-// ── VSCO 2 CE Orchestral Samples (CC0) ──────────────────────────────────
-// Sustain articulation, mid velocity layer, WAV→FLAC. Naming: {Prefix}_{Note_with_s_for_sharp}.flac
-// VSCO names files with the "middle C = C3" convention: Violin_susVib_A3 actually sounds A4 (440 Hz).
-// octaveShift = 1 maps every file to its real sounding pitch (verified with pitch detection).
-const VSCO_OCTAVE_SHIFT = 1;
-const vsco = (prefix: string, fileNotes: string[]) =>
-  buildSamples(fileNotes, n => `${prefix}_${sharpToS(n)}.flac`, VSCO_OCTAVE_SHIFT);
-
-const VIOLIN_SAMPLES = vsco('Violin_susVib', ['G2', 'A2', 'B2', 'D3', 'F#3', 'A3', 'C4', 'E4', 'G4', 'B4', 'D5']);
-const CELLO_SAMPLES = vsco('Cello_susvib', ['C1', 'E1', 'G1', 'B1', 'D2', 'F2', 'A2', 'C3', 'E3', 'G3', 'B3', 'D4', 'F4']);
-const FLUTE_SAMPLES = vsco('Flute_susvib', ['C3', 'E3', 'A3', 'C4', 'E4', 'A4', 'C5', 'E5', 'A5', 'C6']);
-const TRUMPET_SAMPLES = vsco('Trumpet_sus', ['F2', 'A2', 'C3', 'D#3', 'G3', 'A#3', 'D4', 'F4', 'A4', 'C5']);
-const HORN_SAMPLES = vsco('FHorn_sus', ['A0', 'C1', 'D#1', 'G1', 'A#1', 'D2', 'F2', 'A2', 'C3', 'D4', 'F4']);
-
-// ── Upright Piano KW (CC0, freepats.zenvoid.org) ──────────────────────
-// Files: {Note}vH.flac  e.g. A0vH.flac, Ds3vH.flac — only the SFZ pitch_keycenter notes exist;
-// the engine re-pitches the nearest one for every other key.
-const UPRIGHT_SAMPLES = buildSamples(
-  [21, 23, 24, 27, 30, 33, 35, 36, 39, 42, 47, 48, 51, 54, 57, 59, 63, 66, 69, 71,
-   72, 75, 78, 81, 83, 84, 87, 90, 93, 95, 96, 99, 102, 105, 107, 108].map(midiToNote),
-  n => `${sharpToS(n)}vH.flac`,
-);
-
-// ── Karoryfer Emily Guitar / BJAM (correct pitch as named) ─────────────
-const EMILY_SAMPLES = buildSamples(
-  ['C#2', 'E2', 'F#2', 'A2', 'C3', 'D#3', 'F#3', 'A3', 'C4', 'D#4', 'F#4', 'A4', 'C5', 'D#5', 'F#5', 'A5', 'C6', 'D6'],
-  n => `Emily_${sharpToS(n)}.flac`,
-);
-const BJAM_SAMPLES = buildSamples(['E2', 'A2', 'D3', 'G3', 'B3', 'E4'], n => `BJAM_${sharpToS(n)}.flac`);
-
-// ── Sample Sets ────────────────────────────────────────────────────────
 
 export const SAMPLE_SETS: Record<string, SampleSet> = {
-  'acoustic-piano': {
-    name: 'acoustic-piano',
-    label: 'Acoustic Piano',
-    basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/piano/',
-    samples: PIANO_SAMPLES,
-    noteOffRelease: 0.7,
-    noteRange: rangeOf(PIANO_SAMPLES),
-    releaseSeconds: 4.0,
-  },
-  'electric-guitar': {
-    name: 'electric-guitar',
-    label: 'Electric Guitar',
-    basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/guitar/',
-    samples: GUITAR_SAMPLES,
-    noteOffRelease: 0.4,
-    noteRange: rangeOf(GUITAR_SAMPLES),
-    releaseSeconds: 1.0,
-  },
-  'electric-bass': {
-    name: 'electric-bass',
-    label: 'Electric Bass',
-    basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/bass/',
-    samples: BASS_SAMPLES,
-    noteOffRelease: 0.25,
-    noteRange: rangeOf(BASS_SAMPLES),
-    releaseSeconds: 1.0,
-  },
-
-  // ── VSCO 2 CE Orchestral ──────────────────────────────────────────────
-  'vsco-violin': {
-    name: 'vsco-violin',
-    label: 'Violin Section',
-    basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-violin/',
-    samples: VIOLIN_SAMPLES,
-    noteRange: rangeOf(VIOLIN_SAMPLES),
-    noteOffRelease: 0.25,
-  },
-  'vsco-cello': {
-    name: 'vsco-cello',
-    label: 'Cello Section',
-    basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-cello/',
-    samples: CELLO_SAMPLES,
-    noteRange: rangeOf(CELLO_SAMPLES),
-    noteOffRelease: 0.25,
-  },
-  'vsco-flute': {
-    name: 'vsco-flute',
-    label: 'Flute',
-    basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-flute/',
-    samples: FLUTE_SAMPLES,
-    noteRange: rangeOf(FLUTE_SAMPLES),
-    noteOffRelease: 0.25,
-  },
-  'vsco-trumpet': {
-    name: 'vsco-trumpet',
-    label: 'Trumpet',
-    basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-trumpet/',
-    samples: TRUMPET_SAMPLES,
-    noteRange: rangeOf(TRUMPET_SAMPLES),
-    noteOffRelease: 0.25,
-  },
-  'vsco-horn': {
-    name: 'vsco-horn',
-    label: 'French Horn',
-    basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-horn/',
-    samples: HORN_SAMPLES,
-    noteRange: rangeOf(HORN_SAMPLES),
-    noteOffRelease: 0.25,
-  },
-  'vsco-upright': {
-    name: 'vsco-upright',
-    label: 'Upright Piano KW',
-    basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/vsco-upright/',
-    samples: UPRIGHT_SAMPLES,
-    noteOffRelease: 0.5,
-    noteRange: rangeOf(UPRIGHT_SAMPLES),
-    releaseSeconds: 1.5,
-  },
-  'karoryfer-guitar': {
-    name: 'karoryfer-guitar',
-    label: 'Karoryfer Emily Guitar',
-    basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/karoryfer-guitar/',
-    samples: EMILY_SAMPLES,
-    noteOffRelease: 0.4,
-    noteRange: rangeOf(EMILY_SAMPLES),
-  },
-  'bjam-guitar': {
-    name: 'bjam-guitar',
-    label: 'BJAM Guitar',
-    basePath: 'https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/bjam-guitar/',
-    samples: BJAM_SAMPLES,
-    noteOffRelease: 0.35,
-    noteRange: rangeOf(BJAM_SAMPLES),
-  },
+  // Splendid Grand Piano (Steinway D), public domain
+  'acoustic-piano': makeSet('acoustic-piano', 'Grand Piano', 0.7, ['B0', 'Ds1', 'F1', 'G1', 'A1', 'B1', 'Cs2', 'D2', 'E2', 'F2', 'G2', 'A2', 'B2', 'C3', 'D3', 'E3', 'F3', 'G3', 'Gs3', 'A3', 'As3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G5', 'Gs5', 'A5', 'As5', 'B5', 'Cs6', 'D6', 'Ds6', 'E6', 'F6', 'Fs6', 'G6', 'Gs6', 'A6', 'As6', 'B6', 'C7', 'Cs7', 'D7', 'Ds7', 'E7', 'F7', 'Fs7', 'G7', 'Gs7', 'A7', 'As7', 'B7', 'C8']),
+  // Upright Piano KW, CC0 (freepats)
+  'upright-piano': makeSet('upright-piano', 'Upright Piano', 0.5, ['A0', 'B0', 'C1', 'Ds1', 'Fs1', 'A1', 'B1', 'C2', 'Ds2', 'Fs2', 'B2', 'C3', 'Ds3', 'Fs3', 'A3', 'B3', 'Ds4', 'Fs4', 'A4', 'B4', 'C5', 'Ds5', 'Fs5', 'A5', 'B5', 'C6', 'Ds6', 'Fs6', 'A6', 'B6', 'C7', 'Ds7', 'Fs7', 'A7', 'B7', 'C8']),
+  // University of Iowa MIS, free to use
+  'acoustic-guitar': makeSet('acoustic-guitar', 'Acoustic Guitar (Steel)', 0.45, ['D2', 'Ds2', 'E2', 'F2', 'Fs2', 'G2', 'Gs2', 'A2', 'As2', 'B2', 'C3', 'Cs3', 'D3', 'Ds3', 'E3', 'F3', 'Fs3', 'G3', 'Gs3', 'A3', 'As3', 'B3', 'C4', 'Cs4', 'D4', 'Ds4', 'E4', 'F4', 'Fs4', 'G4', 'Gs4', 'A4', 'As4', 'B4', 'C5', 'Cs5', 'D5']),
+  // Freesound pack 11573 by quartertone, CC BY
+  'nylon-guitar': makeSet('nylon-guitar', 'Classical Guitar (Nylon)', 0.45, ['B1', 'D2', 'E2', 'Fs2', 'Gs2', 'A2', 'B2', 'Cs3', 'D3', 'E3', 'Fs3', 'G3', 'A3', 'B3', 'Cs4', 'Ds4', 'E4', 'Fs4', 'Gs4', 'A4', 'B4', 'Cs5', 'Ds5', 'E5', 'Fs5', 'G5', 'Gs5', 'A5', 'As5']),
+  // Karoryfer Samples, CC0
+  'electric-guitar': makeSet('electric-guitar', 'Electric Guitar', 0.4, ['Cs2', 'E2', 'Fs2', 'A2', 'C3', 'Ds3', 'Fs3', 'A3', 'C4', 'Ds4', 'Fs4', 'A4', 'C5', 'Ds5', 'Fs5', 'A5', 'C6']),
+  // Karoryfer Samples, CC0
+  'electric-bass': makeSet('electric-bass', 'Electric Bass', 0.25, ['Cs1', 'E1', 'G1', 'As1', 'Cs2', 'E2', 'G2', 'As2', 'Cs3', 'E3', 'G3', 'As3', 'Cs4', 'E4', 'G4', 'As4', 'Cs5']),
+  // Karoryfer Emily Guitar, CC0
+  'emily-guitar': makeSet('emily-guitar', 'Emily Guitar', 0.4, ['Cs2', 'E2', 'Fs2', 'A2', 'C3', 'Ds3', 'Fs3', 'A3', 'C4', 'Ds4', 'Fs4', 'A4', 'C5', 'Ds5', 'Fs5', 'A5', 'C6', 'D6']),
+  // VSCO 2 CE, CC0
+  'bjam-guitar': makeSet('bjam-guitar', 'BJAM Guitar', 0.35, ['E2', 'A2', 'D3', 'G3', 'B3', 'E4']),
+  // VSCO 2 CE, CC0
+  'violin': makeSet('violin', 'Violin', 0.25, ['G3', 'A3', 'C4', 'E4', 'G4', 'A4', 'C5', 'E5', 'G5', 'A5', 'C6', 'E6', 'G6', 'A6', 'C7']),
+  // Freesound pack 12408 by flcellogrl, CC BY
+  'cello': makeSet('cello', 'Cello', 0.25, ['C2', 'D2', 'Ds2', 'E2', 'F2', 'G2', 'Gs2', 'A2', 'As2', 'B2', 'C3', 'Cs3', 'D3', 'Ds3', 'E3', 'F3', 'Fs3', 'G3', 'Gs3', 'A3', 'As3', 'B3', 'C4', 'Cs4', 'D4', 'Ds4', 'E4', 'F4', 'Fs4', 'G4', 'Gs4', 'A4', 'B4', 'C5']),
+  // VSCO 2 CE, CC0
+  'flute': makeSet('flute', 'Flute', 0.25, ['C4', 'E4', 'A4', 'C5', 'E5', 'A5', 'C6', 'E6', 'A6', 'C7']),
+  // VSCO 2 CE, CC0
+  'trumpet': makeSet('trumpet', 'Trumpet', 0.2, ['F3', 'A3', 'C4', 'Ds4', 'F4', 'G4', 'As4', 'D5', 'F5', 'A5', 'C6']),
+  // VSCO 2 CE, CC0
+  'french-horn': makeSet('french-horn', 'French Horn', 0.25, ['A1', 'C2', 'Ds2', 'G2', 'D3', 'F3', 'C4', 'D5', 'F5']),
 };
 
-/** Maps drum note names to relative sample paths */
-export function getDrumSamplePath(drumName: string): string | null {
-  const file = drumFiles[drumName];
-  if (!file) return null;
-  return `https://cdn.jsdelivr.net/gh/samirsalmi/samples@main/drums/${file}`;
+/** Old set names (still stored in saved songs / browser storage) → current set. */
+export const SAMPLE_SET_ALIASES: Record<string, string> = {
+  'vsco-upright': 'upright-piano',
+  'vsco-violin': 'violin',
+  'vsco-cello': 'cello',
+  'vsco-flute': 'flute',
+  'vsco-trumpet': 'trumpet',
+  'vsco-horn': 'french-horn',
+  'karoryfer-guitar': 'emily-guitar',
+};
+
+export function getSampleSet(name: string | undefined): SampleSet | undefined {
+  if (!name) return undefined;
+  return SAMPLE_SETS[name] ?? SAMPLE_SETS[SAMPLE_SET_ALIASES[name]];
 }
 
-/** Returns the sample set for a given drum name, or null */
+const drumFiles: Record<string, string> = {
+  'Kick': 'kick.flac',
+  'Snare': 'snare.flac',
+  'Hi-Hat': 'hat-closed.flac',
+  'Open Hi-Hat': 'hat-open.flac',
+  'Tom Low': 'tom-low.flac',
+  'Tom Mid': 'tom-mid.flac',
+  'Tom High': 'tom-high.flac',
+  'Ride': 'ride.flac',
+  'Crash': 'crash.flac',
+  'Clap': 'clap.flac',
+};
+
+/** URL of the sample for a drum name, or null. */
+export function getDrumSamplePath(drumName: string): string | null {
+  const file = drumFiles[drumName];
+  return file ? `${BASE}drums/${file}` : null;
+}
+
 export function drumHasSample(drumName: string): boolean {
   return drumName in drumFiles;
 }

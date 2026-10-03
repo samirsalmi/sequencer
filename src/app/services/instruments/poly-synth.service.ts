@@ -1,13 +1,10 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { InstrumentPreset } from '../../data/playlist-presets';
-import { PluckSynthService } from './pluck-synth.service';
 
 const MIDDLE_C = 261.63;
 
 @Injectable({ providedIn: 'root' })
 export class PolySynthService {
-  private readonly pluck = inject(PluckSynthService);
-  private noiseBuffer: AudioBuffer | null = null;
 
   triggerNote(ctx: AudioContext, frequency: number, destination: AudioNode, type: OscillatorType = 'sine', time?: number, velocity = 1, duration?: number, previousFrequency?: number, portamentoTime?: number, instrumentPreset?: InstrumentPreset): void {
     if (ctx.state === 'suspended') ctx.resume();
@@ -102,8 +99,9 @@ export class PolySynthService {
   }
 
   /**
-   * Instrument voice: two oscillators (+ optional breath noise) → key-tracked, velocity-sensitive
-   * lowpass with envelope → exponential ADSR, with delayed vibrato. Plucked presets use Karplus–Strong.
+   * Retro instrument voice, built only from the four basic waves (sine / square / triangle / sawtooth):
+   * two oscillators → key-tracked, velocity-sensitive lowpass with envelope → exponential ADSR,
+   * plus optional attack pitch drop ("pluck" blip) and delayed vibrato.
    */
   private _playPatch(
     ctx: AudioContext, frequency: number, destination: AudioNode, now: number, velocity: number, dur: number,
@@ -111,12 +109,7 @@ export class PolySynthService {
   ): void {
     const vel = Math.max(0, Math.min(1, velocity));
     const sens = inst.velocitySensitivity;
-    const level = 0.28 * (1 - sens + sens * vel);
-
-    if (inst.engine === 'pluck' && inst.pluck) {
-      this.pluck.triggerNote(ctx, frequency, destination, inst.pluck, now, level * 1.3, dur, inst.ampRelease);
-      return;
-    }
+    const level = 0.28 * (inst.level ?? 1) * (1 - sens + sens * vel);
 
     const glide = (osc: OscillatorNode, target: number) => {
       if (previousFrequency && portamentoTime && previousFrequency !== frequency) {
@@ -136,6 +129,16 @@ export class PolySynthService {
     osc2.detune.value = inst.detune ?? 6;
     const osc2Gain = ctx.createGain();
     osc2Gain.gain.value = inst.osc2Level ?? 0.7;
+
+    // Attack pitch drop: starts slightly sharp and settles, like a plucked or struck string
+    if (inst.pitchDrop && !(previousFrequency && portamentoTime)) {
+      const cents = inst.pitchDrop.semitones * 100;
+      for (const osc of [osc1, osc2]) {
+        const base = osc.detune.value;
+        osc.detune.setValueAtTime(base + cents, now);
+        osc.detune.exponentialRampToValueAtTime(Math.max(base, 0.01) , now + inst.pitchDrop.time);
+      }
+    }
 
     // Filter: follows pitch (keyTracking) and opens with velocity, so high/soft notes aren't dull/harsh
     const filter = ctx.createBiquadFilter();
@@ -173,23 +176,6 @@ export class PolySynthService {
 
     const sources: AudioScheduledSourceNode[] = [osc1, osc2];
 
-    // Breath / bow noise: band-passed around the note, strongest during the attack
-    if (inst.noise) {
-      const noise = ctx.createBufferSource();
-      noise.buffer = this._noise(ctx);
-      noise.loop = true;
-      const bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = Math.min(12000, frequency * 3);
-      bp.Q.value = 0.8;
-      const ng = ctx.createGain();
-      ng.gain.setValueAtTime(0, now);
-      ng.gain.linearRampToValueAtTime(inst.noise, attackEnd);
-      ng.gain.setTargetAtTime(inst.noise * 0.35, attackEnd, 0.08);
-      noise.connect(bp).connect(ng).connect(filter);
-      sources.push(noise);
-    }
-
     // Vibrato in cents, fading in after the attack
     const vib = inst.vibrato;
     if (vib && vib.depth > 0 && vib.rate > 0) {
@@ -226,16 +212,6 @@ export class PolySynthService {
     chain.connect(amp).connect(destination);
 
     for (const src of sources) { src.start(now); src.stop(end); }
-  }
-
-  private _noise(ctx: AudioContext): AudioBuffer {
-    if (this.noiseBuffer && this.noiseBuffer.sampleRate === ctx.sampleRate) return this.noiseBuffer;
-    const len = ctx.sampleRate * 2;
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-    this.noiseBuffer = buf;
-    return buf;
   }
 }
 

@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { MasterMixerService } from '../master-mixer.service';
-import { SAMPLE_SETS, getDrumSamplePath, sampleUrl, samplesByDistance } from '../../data/sample-manifests';
+import { getSampleSet, getDrumSamplePath, sampleUrl, samplesByDistance } from '../../data/sample-manifests';
 import { noteToMidi } from '../../utils/music-theory';
 import { driveCurve } from './poly-synth.service';
 
@@ -31,7 +31,7 @@ export class SampleEngineService {
   }
 
   async preloadSampleSet(setName: string): Promise<void> {
-    const set = SAMPLE_SETS[setName];
+    const set = getSampleSet(setName);
     if (!set) return;
     if (this.loadedSets().has(setName)) return;
 
@@ -59,7 +59,7 @@ export class SampleEngineService {
    * `duration` is the grid note length; sustained instruments stop there, plucked ones ring out.
    */
   playNote(note: string, velocity: number, destination: AudioNode, sampleSetName: string, time?: number, duration?: number, opts: SampleVoiceOptions = {}): boolean {
-    const set = SAMPLE_SETS[sampleSetName];
+    const set = getSampleSet(sampleSetName);
     if (!set) return false;
     let targetMidi: number;
     try { targetMidi = noteToMidi(note); } catch { return false; }
@@ -86,7 +86,7 @@ export class SampleEngineService {
   /** For click-to-preview: waits for the nearest sample to load, then plays it immediately. */
   async previewNote(note: string, velocity: number, destination: AudioNode, sampleSetName: string, opts: SampleVoiceOptions = {}): Promise<boolean> {
     if (this.playNote(note, velocity, destination, sampleSetName, undefined, undefined, opts)) return true;
-    const set = SAMPLE_SETS[sampleSetName];
+    const set = getSampleSet(sampleSetName);
     if (!set) return false;
     let targetMidi: number;
     try { targetMidi = noteToMidi(note); } catch { return false; }
@@ -155,7 +155,7 @@ export class SampleEngineService {
     if (velocityTone) {
       const tone = this.ctx.createBiquadFilter();
       tone.type = 'lowpass';
-      tone.frequency.value = 1800 + 18000 * vel * vel;
+      tone.frequency.value = 3000 + 17000 * vel;
       tone.Q.value = 0.5;
       node = node.connect(tone);
     }
@@ -166,7 +166,7 @@ export class SampleEngineService {
       shaper.curve = driveCurve(opts.drive);
       shaper.oversample = '4x';
       const post = this.ctx.createGain();
-      post.gain.value = 0.6;
+      post.gain.value = 0.35;
       node = node.connect(pre).connect(shaper).connect(post);
     }
     node.connect(gain).connect(destination);

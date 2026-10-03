@@ -101,9 +101,9 @@ export class MasterMixerService {
     // Tie FX return into master chain
     this.fxReturn.connect(this.masterFilter);
     this.masterFilter.connect(this.lfoFilter);
-    // Glue compressor → headroom → brickwall-style limiter so stacked voices never clip
+    // Glue compressor → makeup gain → brickwall-style limiter: full, even loudness and stacked voices never clip
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = 0.8;
+    this.masterGain.gain.value = 1.2;
     this.limiter = this.ctx.createDynamicsCompressor();
     this.limiter.threshold.value = -2;
     this.limiter.knee.value = 0;

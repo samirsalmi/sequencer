@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { AudioService } from './services/audio.service';
 import { CHROMATIC, getChordNotes, getScaleNotes, midiToNote, normalizeNote } from './utils/music-theory';
 import { INSTRUMENT_PRESETS, PLAYLIST_PRESETS, SequencePreset, StepResolution } from './data/playlist-presets';
-import { SAMPLE_SETS } from './data/sample-manifests';
+import { SAMPLE_SETS, getSampleSet } from './data/sample-manifests';
 import { validateStepAlignment, stepsPerMeasure } from './utils/time-signature';
 import { parseMusicXML } from './utils/musicxml-parser';
 
@@ -65,6 +65,7 @@ async function extractFromMxl(buf: ArrayBuffer): Promise<string> {
 export class App implements OnInit {
   protected readonly audio = inject(AudioService);
   readonly SAMPLE_SETS = SAMPLE_SETS;
+  readonly getSampleSet = getSampleSet;
   readonly Math = Math;
   readonly playbackModes: ('synth' | 'sample' | 'layer')[] = ['synth', 'sample', 'layer'];
 

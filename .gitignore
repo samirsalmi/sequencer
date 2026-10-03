@@ -39,9 +39,11 @@ testem.log
 /typings
 __screenshots__/
 
-# Sample assets (hosted in separate repo via CDN)
-/public/samples
+# Local sample source clones (the built library in public/samples IS committed)
 /samples/
+
+# Python
+__pycache__/
 /SplendidGrandPiano/
 /BengtNilsson.HeadroomPiano/
 /upright-piano-KW/

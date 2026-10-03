@@ -228,7 +228,7 @@
       @let ss = getEffectiveSampleSet(activeTrackIndex());
       @if (ss) {
       <span class="text-[8px] px-1.5 py-0.5 rounded bg-amber-900/40 border border-amber-700/50 text-amber-400">
-        {{ SAMPLE_SETS[ss]?.label ?? ss }}
+        {{ getSampleSet(ss)?.label ?? ss }}
       </span>
       }
       }

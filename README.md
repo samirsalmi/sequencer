@@ -1,6 +1,6 @@
 # Loomin
 
-A browser-based step sequencer that plays **real instrument samples**, **retro synth voices**, or **both layered together**, with per-track delay/reverb sends, filters, swing, ties, an arpeggiator and MusicXML import. Built with Angular (signals) + Tailwind, running entirely on the Web Audio API. No server: samples stream from a CDN and are cached in the browser.
+A browser-based step sequencer that plays **real instrument samples**, **retro synth voices**, or **both layered together**, with per-track delay/reverb sends, filters, swing, ties, an arpeggiator and MusicXML import. Built with Angular (signals) + Tailwind, running entirely on the Web Audio API. No server: real-instrument samples ship with the app (`public/samples/`, see [credits](public/samples/CREDITS.md)) and are cached in the browser.
 
 ## Run it
 
@@ -17,8 +17,8 @@ Every track has a **playback mode**:
 
 | Mode | What you hear |
 |------|---------------|
-| `synth` | Oscillator voices (sine / triangle / square / sawtooth / distortion) shaped by the instrument preset's ADSR, filter and vibrato. |
-| `sample` | Recorded samples from the track's sample set. Any note without a usable sample falls back to the synth voice, so a track never goes silent. |
+| `synth` | Retro voices built only from the four basic waves (sine / square / triangle / sawtooth), shaped by each instrument's envelope, filter and vibrato. |
+| `sample` | Real recorded instrument samples. Any note without a usable sample falls back to the retro voice, so a track never goes silent. |
 | `layer` | Synth + sample together; `sampleBlend` sets the mix. |
 
 The global **RETRO** toggle forces every track to synth.

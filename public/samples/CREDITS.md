@@ -1,0 +1,18 @@
+# Sample credits
+
+All samples were trimmed, normalized and converted to FLAC by `scripts/build-samples.py`.
+
+| Folder | Source | License |
+|--------|--------|---------|
+| `acoustic-piano/` | Splendid Grand Piano (Steinway D, AKAI) | Public domain |
+| `upright-piano/` | Upright Piano KW, freepats.zenvoid.org | CC0 |
+| `acoustic-guitar/` | University of Iowa Musical Instrument Samples (theremin.music.uiowa.edu), via nbrosowsky/tonejs-instruments | Free to use without restriction |
+| `nylon-guitar/` | "Classical guitar multisampled" by **quartertone**, Freesound pack 11573, via tonejs-instruments | CC BY (credit: quartertone, freesound.org) |
+| `electric-guitar/`, `electric-bass/` | Karoryfer Samples (karoryfer.com), via tonejs-instruments | CC0 |
+| `emily-guitar/` | Karoryfer Emily Guitar | CC0 |
+| `bjam-guitar/`, `violin/`, `flute/`, `trumpet/`, `french-horn/` | Versilian Studios VSCO 2 Community Edition (vis.versilstudios.net) | CC0 |
+| `cello/` | "Real cello notes" by **flcellogrl**, Freesound pack 12408, via tonejs-instruments | CC BY (credit: flcellogrl, freesound.org) |
+| `drums/` (except clap) | teropa/drumkit | As published by teropa/drumkit |
+| `drums/clap.flac` | OLPC Berklee Sound Library (via Tonejs/audio) | CC BY 3.0 (credit: Berklee College of Music / OLPC) |
+
+tonejs-instruments is © 2018 Nicholaus P. Brosowsky, MIT License.

@@ -36,64 +36,39 @@ A browser-based music sequencer and visualizer built with **Angular** + **Tailwi
 ## Instrument Presets (15)
 
 Defined in `INSTRUMENT_PRESETS` in `playlist-presets.ts`. Every melodic instrument has two voices:
-**realistic** = its `sampleSet` (sample / layer mode) and **retro** = its synth patch (synth mode, RETRO toggle,
-and automatic fallback when a sample is missing).
+**realistic** = its `sampleSet` (real recordings in `public/samples/`, used in sample / layer mode) and
+**retro** = its synth patch, built **only from the four basic waves** (sine / square / triangle / sawtooth), used in
+synth mode, the RETRO toggle, and as automatic fallback when a sample is missing.
 
-| Key | Realistic (sample set) | Retro voice |
+| Key | Realistic (sample set) | Retro waves |
 |-----|------------------------|-------------|
-| `piano` | `acoustic-piano` | triangle + octave sine, hammer filter sweep, key-tracked |
-| `uprightPiano` | `vsco-upright` | triangle + detuned octave square (honky) |
-| `guitar` | `electric-guitar` (broken: Git LFS) | Karplus–Strong pluck, bright |
-| `classicalGuitar` | `karoryfer-guitar` (closest available) | KS pluck, soft nylon |
-| `acousticGuitar` | `karoryfer-guitar` (closest available) | KS pluck, steel |
-| `karoryferGuitar` | `karoryfer-guitar` | KS pluck, warm |
-| `bjamGuitar` | `bjam-guitar` | KS pluck, very bright |
+| `piano` | `acoustic-piano` (Splendid Grand) | square + triangle, decaying |
+| `uprightPiano` | `upright-piano` | two detuned squares (honky-tonk) |
+| `guitar` | `electric-guitar` (Karoryfer) | square + saw, pluck pitch-drop |
+| `classicalGuitar` | `nylon-guitar` | triangle + soft square |
+| `acousticGuitar` | `acoustic-guitar` (Iowa) | saw + triangle |
+| `karoryferGuitar` | `emily-guitar` | saw + triangle, warm |
+| `bjamGuitar` | `bjam-guitar` | saw + square, bright |
 | `metalGuitar` | `bjam-guitar` + drive | double-tracked saws → distortion |
-| `bass` | `electric-bass` (broken: Git LFS) | KS pluck, round |
-| `violin` / `cello` | `vsco-violin` / `vsco-cello` | detuned saw section, bow noise, delayed vibrato |
-| `orchestralFlute` | `vsco-flute` | sine + triangle, breath noise, vibrato |
-| `trumpet` / `frenchHorn` | `vsco-trumpet` / `vsco-horn` | saw with opening filter "blat" / mellow covered tone |
-| `drums` | teropa drum samples | synth kit (all 10 drum names, incl. toms / ride / crash) |
+| `bass` | `electric-bass` (Karoryfer) | triangle + square |
+| `violin` | `violin` (VSCO 2) | detuned saws, delayed vibrato |
+| `cello` | `cello` (chromatic, Freesound) | saw + triangle, delayed vibrato |
+| `orchestralFlute` | `flute` (VSCO 2) | triangle + octave sine, vibrato |
+| `trumpet` / `frenchHorn` | `trumpet` / `french-horn` (VSCO 2) | saw + square swell / triangle + saw, mellow |
+| `drums` | `drums` (all 10 names, incl. clap) | synth kit |
 
-Patch fields: `engine` ('subtractive' | 'pluck'), `pluck {brightness, decay}`, `oscType`, `osc2Type/osc2Octave/osc2Level/detune`,
-`noise` (breath/bow), `keyTracking`, `filterEnvelope`, `ampAttack/Decay/Sustain/Release`, `velocitySensitivity`
-(volume **and** brightness), `vibrato {depth (cents), rate, delay}`, `distortion`, `highPassFilter`.
+Patch fields: `oscType`, `osc2Type/osc2Octave/osc2Level/detune`, `level` (retro/sample balance), `keyTracking`,
+`filterEnvelope`, `ampAttack/Decay/Sustain/Release`, `velocitySensitivity` (volume **and** brightness),
+`pitchDrop {semitones, time}`, `vibrato {depth (cents), rate, delay}`, `distortion`, `highPassFilter`.
 
 ---
 
-## Sample Sets (11 total)
+## Sample Sets (13 + drums)
 
-See `docs/sample-library.md` for which files exist, pitch corrections (VSCO files are named an octave low) and known broken sets (guitar/bass are Git LFS pointers).
-
-Defined in `SAMPLE_SETS` inside `sample-manifests.ts`. Used when `playbackMode` is `"sample"` or `"layer"`.
-
-| Key | Source | Notes | Range |
-|-----|--------|-------|-------|
-| `acoustic-piano` | Splendid Grand Piano (Steinway D) | 88 FLAC files, FF layer | A0–C8 |
-| `electric-guitar` | cluesurf/wave (Public Domain) | String-per-file WAVs | D2–C6 |
-| `electric-bass` | cluesurf/wave (Public Domain) | String-per-file WAVs | E1–G3 |
-| `vsco-violin` | VSCO 2 CE (CC0) | Sustain vibrato FLACs | G3–D6 |
-| `vsco-cello` | VSCO 2 CE (CC0) | Sustain FLACs | C2–F5 |
-| `vsco-flute` | VSCO 2 CE (CC0) | Sustain FLACs | C4–C7 |
-| `vsco-trumpet` | VSCO 2 CE (CC0) | Sustain FLACs | F3–D6 |
-| `vsco-horn` | VSCO 2 CE (CC0) | Sustain FLACs | A0–F5 |
-| `vsco-upright` | VSCO 2 CE (CC0) | Upright piano FLACs | C2–G8 |
-| `karoryfer-guitar` | Karoryfer Emily Guitar | Warm flatwound FLACs | Bb2–C6 |
-| `bjam-guitar` | VSCO 2 CE + BJAM | Bridge pickup sustain + chug FLACs | E3–E5 |
-
-### Drum Samples (teropa/drumkit, MP3)
-
-| Name | File | Sound |
-|------|------|-------|
-| Kick | `kick.mp3` | Deep thud |
-| Snare | `snare.mp3` | Sharp crack |
-| Hi-Hat | `hat-closed.mp3` | Tight chick |
-| Open Hi-Hat | `hat-open.mp3` | Sizzling wash |
-| Tom Low | `tom-low.mp3` | Low floor tom |
-| Tom Mid | `tom-mid.mp3` | Mid rack tom |
-| Tom High | `tom-high.mp3` | High rack tom |
-| Ride | `ride.mp3` | Shimmering bell |
-| Crash | `crash.mp3` | Explosive accent |
+Served from `public/samples/<set>/<Note>.flac` (sharps written `s`, e.g. `Cs4.flac`). Built by
+`scripts/build-samples.py` (leading silence trimmed, mono FLAC, pitch-checked). Note lists live in
+`sample-manifests.ts`; old set names (`vsco-*`, `karoryfer-guitar`) still resolve via `SAMPLE_SET_ALIASES`.
+Full source / license table: `public/samples/CREDITS.md`. Audit notes: `docs/sample-library.md`.
 
 ---
 
