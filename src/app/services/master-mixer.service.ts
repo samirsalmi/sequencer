@@ -18,6 +18,8 @@ export class MasterMixerService {
   private readonly compressor: DynamicsCompressorNode;
   private readonly masterGain: GainNode;
   private readonly limiter: DynamicsCompressorNode;
+  /** Final output node (after the limiter and headroom ceiling), e.g. for recording. */
+  readonly output: GainNode;
 
   // FX Bus
   private readonly fxReturn: GainNode;
@@ -105,13 +107,16 @@ export class MasterMixerService {
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = 1.2;
     this.limiter = this.ctx.createDynamicsCompressor();
-    this.limiter.threshold.value = -2;
+    this.limiter.threshold.value = -3;
     this.limiter.knee.value = 0;
     this.limiter.ratio.value = 20;
-    this.limiter.attack.value = 0.002;
+    this.limiter.attack.value = 0.0005; // fast enough to catch drum transients
     this.limiter.release.value = 0.1;
     this.lfoFilter.connect(this.compressor);
-    this.compressor.connect(this.masterGain).connect(this.limiter).connect(this.ctx.destination);
+    // DynamicsCompressor applies automatic makeup gain, pushing peaks to full scale; a fixed ceiling keeps ~2 dB headroom
+    this.output = this.ctx.createGain();
+    this.output.gain.value = 0.8;
+    this.compressor.connect(this.masterGain).connect(this.limiter).connect(this.output).connect(this.ctx.destination);
   }
 
   setLfoRate(value: number): void {
