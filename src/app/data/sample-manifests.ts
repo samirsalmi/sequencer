@@ -19,6 +19,8 @@ export interface SampleSet {
    * Short for bowed and blown instruments, longer for piano and guitar. Tie notes to let them ring longer.
    */
   noteOffRelease: number;
+  /** Optional fade-in in seconds: softens the scratchy bow / breath onset of sustained instruments. */
+  attackSeconds?: number;
 }
 
 
@@ -28,10 +30,10 @@ function buildSamples(fileNotes: string[]): Map<number, string> {
   return new Map(fileNotes.map(n => [noteToMidi(n.replace('s', '#')), `${n}.flac`]));
 }
 
-function makeSet(name: string, label: string, noteOffRelease: number, fileNotes: string[], releaseSeconds?: number): SampleSet {
+function makeSet(name: string, label: string, noteOffRelease: number, fileNotes: string[], releaseSeconds?: number, attackSeconds?: number): SampleSet {
   const samples = buildSamples(fileNotes);
   const keys = [...samples.keys()];
-  return { name, label, basePath: `${BASE}${name}/`, samples, noteRange: [Math.min(...keys), Math.max(...keys)], noteOffRelease, releaseSeconds };
+  return { name, label, basePath: `${BASE}${name}/`, samples, noteRange: [Math.min(...keys), Math.max(...keys)], noteOffRelease, releaseSeconds, attackSeconds };
 }
 
 export const SAMPLE_SETS: Record<string, SampleSet> = {
@@ -54,7 +56,7 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
   // VSCO 2 CE, CC0
   'violin': makeSet('violin', 'Violin', 0.25, ['G3', 'A3', 'C4', 'E4', 'G4', 'A4', 'C5', 'E5', 'G5', 'A5', 'C6', 'E6', 'G6', 'A6', 'C7']),
   // Freesound pack 12408 by flcellogrl, CC BY
-  'cello': makeSet('cello', 'Cello', 0.25, ['C2', 'D2', 'Ds2', 'E2', 'F2', 'G2', 'Gs2', 'A2', 'As2', 'B2', 'C3', 'Cs3', 'D3', 'Ds3', 'E3', 'F3', 'Fs3', 'G3', 'Gs3', 'A3', 'As3', 'B3', 'C4', 'Cs4', 'D4', 'Ds4', 'E4', 'F4', 'Fs4', 'G4', 'Gs4', 'A4', 'B4', 'C5']),
+  'cello': makeSet('cello', 'Cello', 0.25, ['C2', 'D2', 'Ds2', 'E2', 'F2', 'G2', 'Gs2', 'A2', 'As2', 'B2', 'C3', 'Cs3', 'D3', 'Ds3', 'E3', 'F3', 'Fs3', 'G3', 'Gs3', 'A3', 'As3', 'B3', 'C4', 'Cs4', 'D4', 'Ds4', 'E4', 'F4', 'Fs4', 'G4', 'Gs4', 'A4', 'B4', 'C5'], undefined, 0.07),
   // VSCO 2 CE, CC0
   'flute': makeSet('flute', 'Flute', 0.25, ['C4', 'E4', 'A4', 'C5', 'E5', 'A5', 'C6', 'E6', 'A6', 'C7']),
   // VSCO 2 CE, CC0

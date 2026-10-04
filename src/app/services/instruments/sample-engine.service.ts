@@ -77,7 +77,7 @@ export class SampleEngineService {
       const ringEnd = start + Math.min(set.releaseSeconds ?? Infinity, buffer.duration / rate);
       // Preview clicks have no duration: let them ring like a held key
       const noteEnd = duration != null ? Math.min(start + duration, ringEnd) : ringEnd;
-      this._playBuffer(buffer, velocity, destination, start, noteEnd, ringEnd, set.noteOffRelease, rate, true, opts);
+      this._playBuffer(buffer, velocity, destination, start, noteEnd, ringEnd, set.noteOffRelease, rate, true, opts, set.attackSeconds);
       return true;
     }
     return false;
@@ -128,10 +128,11 @@ export class SampleEngineService {
   /**
    * Plays a buffer re-pitched by `rate`. Holds until `noteEnd`, then dies away over `release`
    * (never past `ringEnd`). `velocityTone` darkens soft notes like a real instrument.
+   * `attack` fades the note in (capped at half its length) to round off harsh onsets.
    */
   private _playBuffer(
     buffer: AudioBuffer, velocity: number, destination: AudioNode, start: number, noteEnd: number, ringEnd: number,
-    release: number, rate: number, velocityTone: boolean, opts: SampleVoiceOptions = {},
+    release: number, rate: number, velocityTone: boolean, opts: SampleVoiceOptions = {}, attack = 0,
   ): void {
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
@@ -141,7 +142,13 @@ export class SampleEngineService {
     const level = vel * 0.8;
     const stop = Math.min(ringEnd, noteEnd + release * 1.5);
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(level, start);
+    const fadeIn = Math.min(attack, (noteEnd - start) / 2);
+    if (fadeIn > 0) {
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.linearRampToValueAtTime(level, start + fadeIn);
+    } else {
+      gain.gain.setValueAtTime(level, start);
+    }
     if (stop > noteEnd + 0.005) {
       gain.gain.setValueAtTime(level, noteEnd);
       gain.gain.setTargetAtTime(0, noteEnd, Math.max(release, 0.01) / 4);
