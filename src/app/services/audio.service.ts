@@ -210,8 +210,7 @@ export class AudioService {
       return t.grid.map(() => Array(sc).fill(false));
     }));
     for (let t = 0; t < merged.tracks.length; t++) {
-      const gain = t === 0 ? 0.62 : t === 1 ? 0.38 : t === 2 ? 0.80 : 0.8;
-      this.trackChannels.push(this.mixer.createChannel(merged.tracks[t].trackName, gain));
+      this.trackChannels.push(this.mixer.createChannel(merged.tracks[t].trackName, this._defaultVolume(merged.tracks[t], t)));
       const trk = merged.tracks[t];
       if (trk.delaySend != null) this.mixer.setDelaySend(t, trk.delaySend);
       if (trk.reverbSend != null) this.mixer.setReverbSend(t, trk.reverbSend);
@@ -362,6 +361,25 @@ export class AudioService {
     const updatedTracks = p.tracks.map((t, i) =>
       i === trackIndex ? { ...t, delaySend: delay, reverbSend: reverb } : t
     );
+    this.preset.set({ ...p, tracks: updatedTracks });
+    this._saveCustomTracks(p.name, updatedTracks);
+  }
+
+  /** Track fader level: the song's `volume`, else the legacy position-based default older songs were balanced with. */
+  private _defaultVolume(track: SequencePreset['tracks'][0], index: number): number {
+    return track.volume ?? (index === 0 ? 0.62 : index === 1 ? 0.38 : 0.8);
+  }
+
+  getVolume(trackIndex: number): number {
+    const t = this.preset()?.tracks[trackIndex];
+    return t ? this._defaultVolume(t, trackIndex) : 0.8;
+  }
+
+  setTrackVolume(trackIndex: number, volume: number): void {
+    this.mixer.setVolume(trackIndex, volume);
+    const p = this.preset();
+    if (!p) return;
+    const updatedTracks = p.tracks.map((t, i) => i === trackIndex ? { ...t, volume } : t);
     this.preset.set({ ...p, tracks: updatedTracks });
     this._saveCustomTracks(p.name, updatedTracks);
   }

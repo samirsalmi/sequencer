@@ -184,6 +184,11 @@ export class MasterMixerService {
     if (ch) ch.trackFilter.frequency.setValueAtTime(freq, this.ctx.currentTime);
   }
 
+  setVolume(trackIndex: number, value: number): void {
+    const ch = this.channels[trackIndex];
+    if (ch) ch.fader.gain.setTargetAtTime(Math.max(0, value), this.ctx.currentTime, 0.02);
+  }
+
   setPan(trackIndex: number, value: number): void {
     const ch = this.channels[trackIndex];
     if (ch) ch.panner.pan.setValueAtTime(Math.max(-1, Math.min(1, value)), this.ctx.currentTime);

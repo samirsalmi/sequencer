@@ -49,12 +49,23 @@ def yin(x, lo=27, hi=4200):
     tt = t + (0.5 * (a - c) / den if den else 0)
     return SR / tt
 
-def process(src, dst, max_len, check_pitch_midi=None, fade=0.08):
+def process(src, dst, max_len, check_pitch_midi=None, fade=0.08, attack_db=None):
     x = decode(src)
     peak = float(np.max(np.abs(x))) or 1.0
     onset = int(np.argmax(np.abs(x) > peak * 0.02))
     start = max(0, onset - int(SR * 0.001))
+    fade_in = 0
+    if attack_db is not None:
+        # Bowed / blown notes swell in slowly; skip ahead to where the note reaches `attack_db` of its full level
+        # so it speaks on the beat instead of fading in under faster instruments.
+        w = int(SR * 0.01)
+        env = np.sqrt(np.convolve(x.astype(np.float64) ** 2, np.ones(w) / w, mode='same'))
+        target = env.max() * 10 ** (attack_db / 20)
+        reach = int(np.argmax(env[start:] >= target)) + start
+        start = max(start, reach - int(SR * 0.02))
+        fade_in = int(SR * 0.01)
     y = x[start:start + int(SR * max_len)]
+    if fade_in: y[:fade_in] *= np.linspace(0, 1, fade_in)
     n_f = min(len(y), int(SR * fade))
     y[-n_f:] *= np.linspace(1, 0, n_f)
     y = y / peak * 0.891  # -1 dBFS
@@ -72,13 +83,13 @@ def process(src, dst, max_len, check_pitch_midi=None, fade=0.08):
     return info
 
 report = {}
-def add_set(key, files, max_len, pitched=True):
+def add_set(key, files, max_len, pitched=True, attack_db=None):
     """files: list of (src_path, note_name)"""
     rows = []
     for src, note in files:
         midi = midi_of(note)
         dst = f"{OUT}/{key}/{note_of(midi).replace('#', 's')}.flac"
-        rows.append({'note': note_of(midi), **process(src, dst, max_len, midi if pitched else None)})
+        rows.append({'note': note_of(midi), **process(src, dst, max_len, midi if pitched else None, attack_db=attack_db)})
     report[key] = rows
     print(key, len(rows), file=sys.stderr)
 
@@ -103,11 +114,11 @@ add_set('electric-guitar', tji('guitar-electric'), 3.5)
 add_set('electric-bass', tji('bass-electric'), 3.0)
 add_set('emily-guitar', [(p, os.path.basename(p)[6:-5]) for p in sorted(glob.glob(f'{OLD}/karoryfer-guitar/Emily_*.flac'))], 3.5)
 add_set('bjam-guitar', [(f'{OLD}/bjam-guitar/BJAM_{n}.flac', n) for n in ['E2', 'A2', 'D3', 'G3', 'B3', 'E4']], 3.5)
-add_set('violin', tji('violin'), 5.0)
-add_set('cello', tji('cello'), 5.0)
-add_set('flute', tji('flute'), 5.0)
-add_set('trumpet', tji('trumpet'), 5.0)
-add_set('french-horn', tji('french-horn', exclude=('A3',)), 5.0)
+add_set('violin', tji('violin'), 5.0, attack_db=-6)
+add_set('cello', tji('cello'), 5.0, attack_db=-6)
+add_set('flute', tji('flute'), 5.0, attack_db=-6)
+add_set('trumpet', tji('trumpet'), 5.0, attack_db=-6)
+add_set('french-horn', tji('french-horn', exclude=('A3',)), 5.0, attack_db=-6)
 
 drums = []
 for name, f in [('kick', 'kick'), ('snare', 'snare'), ('hat-closed', 'hat-closed'), ('hat-open', 'hat-open'),

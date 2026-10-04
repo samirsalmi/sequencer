@@ -17,6 +17,8 @@ export interface SequencePreset {
     synthType: 'sine' | 'square' | 'sawtooth' | 'triangle' | 'distortion';
     /** Stereo position, -1 (left) to 1 (right). */
     pan?: number;
+    /** Track fader level 0–1.5 (defaults depend on track position, kept for older songs). */
+    volume?: number;
     distortion?: number;
     drive?: number;
     filterCutoff?: number;
@@ -236,13 +238,15 @@ export const INSTRUMENT_PRESETS: Record<string, InstrumentPreset> = {
     name: 'cello',
     label: '🎻 Cello',
     sampleSet: 'cello',
-    oscType: 'sawtooth',
-    osc2Type: 'triangle', osc2Level: 0.7, detune: 5, // triangle adds warm body
-    ampAttack: 0.09, ampDecay: 0.3, ampSustain: 0.85, ampRelease: 0.25,
+    // Square (odd harmonics) + saw (evens) under a gentle filter: tuned against the real cello's harmonic
+    // profile (weak 2nd, strong 3rd/4th, overtones fading by the 8th) instead of a raw, buzzy sawtooth.
+    oscType: 'square',
+    osc2Type: 'sawtooth', osc2Level: 1.0, detune: 3,
+    ampAttack: 0.14, ampDecay: 0.3, ampSustain: 0.9, ampRelease: 0.3, // slow bow attack
     velocitySensitivity: 0.5,
-    keyTracking: 0.5,
-    vibrato: { depth: 12, rate: 5.0, delay: 0.3 },
-    filterEnvelope: { initialCutoff: 1500, finalCutoff: 2600, rampDuration: 0.25, Q: 0.6 },
+    keyTracking: 0.9,
+    vibrato: { depth: 10, rate: 5.5, delay: 0.35 },
+    filterEnvelope: { initialCutoff: 1100, finalCutoff: 1700, rampDuration: 0.3, Q: 0.9 },
   },
 
   // ── Winds & brass ─────────────────────────────────────────────────────
@@ -425,6 +429,7 @@ export const PLAYLIST_PRESETS: SequencePreset[] = [
   tracks: [
     {
       trackName: "🎹 Right Hand — Arpeggios",
+      volume: 0.45,
       synthType: "triangle",
       instrumentPreset: "piano",
       playbackMode: "sample",
@@ -453,6 +458,7 @@ export const PLAYLIST_PRESETS: SequencePreset[] = [
     },
     {
       trackName: "🎹 Left Hand — Ground Bass",
+      volume: 0.32,
       synthType: "triangle",
       instrumentPreset: "piano",
       playbackMode: "sample",
@@ -489,6 +495,7 @@ export const PLAYLIST_PRESETS: SequencePreset[] = [
     },
     {
       trackName: "🎻 Cello",
+      volume: 1.0,
       synthType: "sawtooth",
       instrumentPreset: "cello",
       playbackMode: "sample",
