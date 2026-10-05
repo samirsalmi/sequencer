@@ -67,6 +67,17 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
   'trumpet': makeSet('trumpet', 'Trumpet', 0.2, ['F3', 'A3', 'C4', 'Ds4', 'F4', 'G4', 'As4', 'D5', 'F5', 'A5', 'C6']),
   // VSCO 2 CE, CC0
   'french-horn': makeSet('french-horn', 'French Horn', 0.25, ['A1', 'C2', 'Ds2', 'G2', 'D3', 'F3', 'C4', 'D5', 'F5']),
+  // Folk / Celtic, built by scripts/build-folk.py
+  // FreePats Bagpipe (bagpipe in G), CC0 — chanter notes; looped sources unrolled to an 8 s sustain
+  'bagpipe': makeSet('bagpipe', 'Bagpipe', 0.15, ['F4', 'G4', 'A4', 'As4', 'B4', 'C5', 'Cs5', 'D5', 'Ds5', 'E5', 'F5', 'Fs5', 'G5']),
+  // FreePats Bagpipe, CC0 — the two drones (12 s); hold one note under the chanter
+  'bagpipe-drone': makeSet('bagpipe-drone', 'Bagpipe Drones', 0.3, ['G2', 'G3']),
+  // Freesound sounds 328235 + 329085 by sdeepspeeds, CC0 — real hurdy-gurdy: drone string (B2), melody string (B3, B4)
+  'hurdy-gurdy': makeSet('hurdy-gurdy', 'Hurdy-Gurdy', 0.2, ['B2', 'B3', 'B4'], undefined, 0.03),
+  // VCSL, CC0 — Baroque soprano recorder: a duct flute like the tin whistle, same range as a D whistle
+  'recorder': makeSet('recorder', 'Soprano Recorder (Whistle)', 0.12, ['C5', 'D5', 'E5', 'Fs5', 'Gs5', 'As5', 'C6', 'D6', 'E6', 'Fs6', 'G6', 'As6', 'C7']),
+  // VCSL, CC0 — Strumstick, a small fretted folk lute (mandola / bouzouki stand-in)
+  'strumstick': makeSet('strumstick', 'Strumstick (Folk Lute)', 0.5, ['D3', 'E3', 'Fs3', 'G3', 'A3', 'B3', 'Cs4', 'D4', 'E4', 'Fs4', 'G4', 'A4', 'B4', 'Cs5', 'D5', 'E5', 'Fs5', 'G5', 'A5']),
   // Freesound pack 14939 by Ax_Grinder, CC BY 3.0 — real amp distortion. Each sample is a whole power chord
   // (root + fifth); the file name is the root, so one grid note plays the full chord.
   'dist-power': { ...makeSet('dist-power', 'Distorted Power Chords', 0.12, POWER_ROOTS), distorted: true },

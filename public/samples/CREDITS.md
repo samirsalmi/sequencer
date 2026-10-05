@@ -15,6 +15,9 @@ All samples were trimmed, normalized and converted to FLAC by `scripts/build-sam
 | `dist-power/`, `dist-power-pm/` | "Electric Guitar Power Chords" by **Ax_Grinder**, Freesound pack 14939 (freesound.org/people/Ax_Grinder/packs/14939) — Jackson Warrior → Line6 POD XT Live; built by `scripts/build-dist-guitar.py` | CC BY 3.0 (credit: Ax_Grinder, freesound.org) |
 | `dist-guitar/`, `dist-guitar-pm/` | "Distorted Guitar Single Notes" by **SpeedY**, Freesound pack 643 (freesound.org/people/SpeedY/packs/643); built by `scripts/build-dist-guitar.py` | CC0 |
 | `drums-rusty/` | "Big Rusty Drums" by **Karoryfer Samples** (karoryfer.com, github.com/sfzinstruments/karoryfer.big-rusty-drums) — 4 velocity layers x 2 round robins per drum, close + overhead mics mixed; built by `scripts/build-drums.py` | CC0 |
+| `bagpipe/`, `bagpipe-drone/` | FreePats "Bagpipe" (freepats.zenvoid.org/Ethnic/bagpipe.html) — bagpipe in G by Rémy Dubois, built by Olle Geris; loops unrolled and retuned to A440 by `scripts/build-folk.py` | CC0 |
+| `hurdy-gurdy/` | "PrimoBordoneMono.wav" (328235) and "SecondoCantino1Mono.wav" (329085) by **sdeepspeeds**, freesound.org; built by `scripts/build-folk.py` | CC0 |
+| `recorder/`, `strumstick/` | Versilian Community Sample Library (github.com/sgossner/VCSL) — Baroque Soprano Recorder, Strumstick; built by `scripts/build-folk.py` | CC0 |
 | `drums/` (except clap) | teropa/drumkit | As published by teropa/drumkit |
 | `drums/clap.flac` | OLPC Berklee Sound Library (via Tonejs/audio) | CC BY 3.0 (credit: Berklee College of Music / OLPC) |
 

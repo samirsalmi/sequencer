@@ -337,6 +337,72 @@ export const INSTRUMENT_PRESETS: Record<string, InstrumentPreset> = {
     filterEnvelope: { initialCutoff: 600, finalCutoff: 1800, rampDuration: 0.12, Q: 0.7 }, // mellow, covered tone
   },
 
+  // ── Folk / Celtic ─────────────────────────────────────────────────────
+  bagpipe: {
+    name: 'bagpipe',
+    label: '🎶 Bagpipe',
+    sampleSet: 'bagpipe',
+    oscType: 'sawtooth',                      // reedy, nasal chanter
+    osc2Type: 'square', osc2Level: 0.5, detune: 6,
+    ampAttack: 0.01, ampDecay: 0.1, ampSustain: 0.95, ampRelease: 0.1,
+    velocitySensitivity: 0.1,                 // the bag gives one steady volume
+    keyTracking: 0.5,
+    filterEnvelope: { initialCutoff: 3500, finalCutoff: 3500, rampDuration: 0.05, Q: 2.0 },
+  },
+
+  bagpipeDrone: {
+    name: 'bagpipeDrone',
+    label: '🎶 Bagpipe Drones',
+    sampleSet: 'bagpipe-drone',
+    oscType: 'sawtooth',
+    osc2Type: 'sawtooth', osc2Octave: -1, osc2Level: 0.6, detune: 4,
+    ampAttack: 0.15, ampDecay: 0.2, ampSustain: 0.9, ampRelease: 0.3,
+    level: 0.7,
+    velocitySensitivity: 0.1,
+    keyTracking: 0.3,
+    filterEnvelope: { initialCutoff: 1500, finalCutoff: 1500, rampDuration: 0.1, Q: 1.0 },
+  },
+
+  hurdyGurdy: {
+    name: 'hurdyGurdy',
+    label: '🎻 Hurdy-Gurdy',
+    sampleSet: 'hurdy-gurdy',
+    oscType: 'sawtooth',                      // bowed by a rosined wheel: bright and buzzy
+    osc2Type: 'square', osc2Level: 0.4, detune: 9,
+    ampAttack: 0.04, ampDecay: 0.2, ampSustain: 0.9, ampRelease: 0.2,
+    velocitySensitivity: 0.3,
+    keyTracking: 0.5,
+    filterEnvelope: { initialCutoff: 2800, finalCutoff: 2800, rampDuration: 0.1, Q: 1.5 },
+  },
+
+  tinWhistle: {
+    name: 'tinWhistle',
+    label: '🎵 Tin Whistle',
+    sampleSet: 'recorder',
+    oscType: 'triangle',
+    osc2Type: 'sine', osc2Octave: 1, osc2Level: 0.15, detune: 0,
+    ampAttack: 0.02, ampDecay: 0.1, ampSustain: 0.85, ampRelease: 0.08,
+    level: 1.3,
+    velocitySensitivity: 0.4,
+    keyTracking: 0.5,
+    vibrato: { depth: 8, rate: 5.5, delay: 0.35 },
+    filterEnvelope: { initialCutoff: 7000, finalCutoff: 6000, rampDuration: 0.08, Q: 0.5 },
+  },
+
+  strumstick: {
+    name: 'strumstick',
+    label: '🪕 Folk Lute (Mandola)',
+    sampleSet: 'strumstick',
+    oscType: 'sawtooth',                      // bright metal strings
+    osc2Type: 'sawtooth', osc2Level: 0.5, detune: 8, // paired courses
+    ampAttack: 0.002, ampDecay: 0.8, ampSustain: 0.0, ampRelease: 0.2,
+    level: 1.4,
+    velocitySensitivity: 0.7,
+    keyTracking: 0.6,
+    pitchDrop: { semitones: 0.2, time: 0.02 },
+    filterEnvelope: { initialCutoff: 6000, finalCutoff: 1500, rampDuration: 0.12, Q: 1.0 },
+  },
+
   // ── Synthesizers (80s pop / rock keys) — the synth voice is the real sound ──
   polySynth: {
     name: 'polySynth',

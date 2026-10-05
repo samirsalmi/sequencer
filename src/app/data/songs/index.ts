@@ -61,6 +61,8 @@ export const SONG_CATALOG: SongMeta[] = [
     load: () => import('./the-final-countdown').then(m => m.THE_FINAL_COUNTDOWN) },
   { name: "Megalovania", artist: "Toby Fox (Undertale), rock arrangement", bpm: 120, stepsPerBeat: 4, stepResolution: "16th", timeSignature: "4/4", stepCount: 384, scale: "naturalMinor", rootNote: "D", trackCount: 6,
     load: () => import('./megalovania').then(m => m.MEGALOVANIA) },
+  { name: "Inis Mona", artist: "Eluveitie", bpm: 112, stepsPerBeat: 4, stepResolution: "16th", timeSignature: "4/4", stepCount: 636, scale: "naturalMinor", rootNote: "D", trackCount: 10,
+    load: () => import('./inis-mona').then(m => m.INIS_MONA) },
   { name: "Stolen Dance (Intro)", artist: "Milky Chance", bpm: 90, stepsPerBeat: 4, stepResolution: "16th", timeSignature: "4/4", stepCount: 128, scale: "naturalMinor", rootNote: "A", trackCount: 3,
     load: () => import('./stolen-dance').then(m => m.STOLEN_DANCE) },
 ];
