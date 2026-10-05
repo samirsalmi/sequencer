@@ -103,7 +103,7 @@ export const IN_THE_END: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 1.3,
+      volume: 1.7,
       rowNotes: ["Crash", "Open Hi-Hat", "Hi-Hat", "Snare", "Tom High", "Tom Mid", "Kick"],
       notes: [
         [128,0,1,0.44], [128,6,1,0.63], [129,6,1,0.63], [130,2,1,0.63], [130,6,1,0.63], [131,6,1,0.63], [132,3,1,0.63], [134,2,1,0.63], [138,2,1,0.63], [138,6,1,0.63],

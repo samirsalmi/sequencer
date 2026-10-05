@@ -20,7 +20,7 @@ export const BILLIE_JEAN: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 1.3,
+      volume: 1.6,
       rowNotes: ["Crash", "Open Hi-Hat", "Hi-Hat", "Clap", "Snare", "Tom Mid", "Tom Low", "Kick"],
       notes: [
         [0,2,1,0.81], [0,7,1,0.78], [2,2,1,0.64], [4,2,1,0.75], [4,4,1,0.91], [6,2,1,0.59], [8,2,1,0.61], [8,7,1,0.78], [10,2,1,0.64], [12,2,1,0.65],
@@ -67,7 +67,7 @@ export const BILLIE_JEAN: SongDef = {
       instrumentPreset: "bass",
       playbackMode: "sample",
       sampleSet: "electric-bass",
-      volume: 0.8,
+      volume: 0.65,
       rowNotes: ["B2", "A2", "F#2", "F2", "E2", "D2", "C#2", "B1", "A1", "F#1"],
       notes: [
         [32,9,1,0.92], [34,6,1,0.88], [36,4,1,0.94], [38,2,1,0.89], [40,4,1,0.92], [42,6,1,0.87], [44,7,1,0.89], [46,6,1,0.89], [48,9,1,0.85], [50,6,1,0.87],
@@ -134,7 +134,7 @@ export const BILLIE_JEAN: SongDef = {
       instrumentPreset: "guitar",
       playbackMode: "sample",
       sampleSet: "electric-guitar",
-      volume: 0.35,
+      volume: 0.5,
       pan: 0.4,
       rowNotes: ["F#4", "F#3"],
       notes: [

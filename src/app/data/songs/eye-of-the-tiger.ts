@@ -84,7 +84,7 @@ export const EYE_OF_THE_TIGER: SongDef = {
       instrumentPreset: "distGuitar",
       playbackMode: "sample",
       sampleSet: "dist-guitar",
-      volume: 0.45,
+      volume: 0.35,
       pan: 0.4,
       rowNotes: ["D#4", "D4", "A#3", "C3"],
       notes: [
@@ -116,7 +116,7 @@ export const EYE_OF_THE_TIGER: SongDef = {
       instrumentPreset: "piano",
       playbackMode: "sample",
       sampleSet: "acoustic-piano",
-      volume: 0.5,
+      volume: 0.35,
       pan: 0.15,
       reverbSend: 0.2,
       rowNotes: ["G4", "F4", "D#4", "D4", "C4", "A#3", "G#3", "G3", "F3", "D#3", "C3", "G#2", "G2"],

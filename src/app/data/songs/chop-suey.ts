@@ -243,7 +243,7 @@ export const CHOP_SUEY: SongDef = {
       instrumentPreset: "bass",
       playbackMode: "sample",
       sampleSet: "electric-bass",
-      volume: 0.6,
+      volume: 0.8,
       rowNotes: ["C3", "A2", "G2", "F#2", "D#2", "C2", "A#1", "A1", "G#1", "G1", "F#1", "D#1"],
       notes: [
         [192,9,192,0.81], [384,9,48,0.81], [432,4,48,0.81], [480,6,48,0.81], [528,11,48,0.81], [576,9,48,0.81], [624,4,48,0.81], [672,6,48,0.81], [720,11,6,0.91], [726,11,6,0.91],
@@ -267,7 +267,7 @@ export const CHOP_SUEY: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 1.3,
+      volume: 0.8,
       rowNotes: ["Crash", "Open Hi-Hat", "Hi-Hat", "Snare", "Tom High", "Tom Mid", "Tom Low", "Kick"],
       notes: [
         [192,2,1,0.91], [192,7,1,1], [384,5,1,0.91], [384,6,1,0.91], [384,7,1,1], [390,4,1,0.62], [393,4,1,0.91], [396,4,1,0.91], [396,7,1,1], [399,5,1,0.91],

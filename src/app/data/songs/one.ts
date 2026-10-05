@@ -103,7 +103,7 @@ export const ONE: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 1.3,
+      volume: 0.9,
       rowNotes: ["Crash", "Hi-Hat", "Snare", "Tom High", "Kick"],
       notes: [
         [114,0,1,0.81], [114,4,1,0.93], [118,0,1,0.81], [118,4,1,0.93], [120,0,1,0.81], [120,4,1,0.93], [122,1,1,0.81], [124,1,1,0.81], [126,1,1,0.81], [126,4,1,0.93],

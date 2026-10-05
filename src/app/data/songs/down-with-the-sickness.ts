@@ -108,7 +108,7 @@ export const DOWN_WITH_THE_SICKNESS: SongDef = {
       instrumentPreset: "bass",
       playbackMode: "sample",
       sampleSet: "electric-bass",
-      volume: 0.6,
+      volume: 0.75,
       rowNotes: ["F1", "D#1", "D1"],
       notes: [
         [64,2,1,0.81], [70,2,6,0.81], [76,2,1,0.81], [80,2,1,0.81], [86,2,6,0.81], [92,2,1,0.81], [96,2,1,0.81], [102,2,6,0.81], [108,2,1,0.81], [112,2,1,0.81],
@@ -136,7 +136,7 @@ export const DOWN_WITH_THE_SICKNESS: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 1.3,
+      volume: 0.9,
       rowNotes: ["Crash", "Ride", "Open Hi-Hat", "Hi-Hat", "Snare", "Tom High", "Tom Low", "Kick"],
       notes: [
         [0,5,1,0.81], [0,6,1,0.81], [0,7,1,0.81], [1,7,1,0.81], [2,6,1,0.81], [2,7,1,0.81], [3,5,1,0.81], [4,6,1,0.81], [4,7,1,0.81], [6,5,1,0.81],

@@ -96,7 +96,7 @@ export const LAST_RESORT: SongDef = {
       instrumentPreset: "distGuitar",
       playbackMode: "sample",
       sampleSet: "dist-guitar",
-      volume: 0.45,
+      volume: 0.32,
       pan: 0.35,
       rowNotes: ["B3", "A3", "G3", "F#3", "E3", "D3", "C3", "B2", "A2", "G2", "F#2"],
       notes: [
@@ -117,7 +117,7 @@ export const LAST_RESORT: SongDef = {
       instrumentPreset: "distGuitar",
       playbackMode: "sample",
       sampleSet: "dist-guitar-pm",
-      volume: 0.45,
+      volume: 0.32,
       pan: 0.35,
       rowNotes: ["B3", "A3", "G3", "F#3", "E3", "D3", "C3", "B2", "A2", "G2", "F#2"],
       notes: [

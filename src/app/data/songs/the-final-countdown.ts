@@ -20,7 +20,7 @@ export const THE_FINAL_COUNTDOWN: SongDef = {
       synthType: "sawtooth",
       instrumentPreset: "synthBrass",
       playbackMode: "synth",
-      volume: 0.45,
+      volume: 0.7,
       pan: 0.05,
       reverbSend: 0.25,
       rowNotes: ["D5", "C#5", "B4", "A4", "G#4", "F#4"],
@@ -79,7 +79,7 @@ export const THE_FINAL_COUNTDOWN: SongDef = {
       instrumentPreset: "violin",
       playbackMode: "sample",
       sampleSet: "violin",
-      volume: 0.45,
+      volume: 0.3,
       reverbSend: 0.35,
       rowNotes: ["F#5", "F5", "E5", "D5", "C#5", "B4", "A4", "G#4", "F#4", "F4", "E4"],
       notes: [
@@ -138,7 +138,7 @@ export const THE_FINAL_COUNTDOWN: SongDef = {
       instrumentPreset: "bass",
       playbackMode: "sample",
       sampleSet: "electric-bass",
-      volume: 0.6,
+      volume: 0.5,
       rowNotes: ["D2", "B1", "F#1", "E1"],
       notes: [
         [320,2,2,1], [322,2,1,1], [323,2,1,1], [324,2,2,1], [326,2,2,1], [328,2,2,1], [330,2,1,1], [331,2,1,1], [332,2,2,1], [334,2,2,1],
@@ -156,7 +156,7 @@ export const THE_FINAL_COUNTDOWN: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 1.3,
+      volume: 0.9,
       rowNotes: ["Crash", "Open Hi-Hat", "Snare", "Tom High", "Tom Mid", "Kick"],
       notes: [
         [303,5,1,1], [304,3,1,1], [305,3,1,1], [307,5,1,1], [308,4,1,1], [309,4,1,1], [311,5,1,1], [312,4,1,1], [313,4,1,1], [315,5,1,1],

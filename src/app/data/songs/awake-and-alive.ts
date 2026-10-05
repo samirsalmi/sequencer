@@ -102,7 +102,7 @@ export const AWAKE_AND_ALIVE: SongDef = {
       instrumentPreset: "piano",
       playbackMode: "sample",
       sampleSet: "acoustic-piano",
-      volume: 0.5,
+      volume: 0.3,
       reverbSend: 0.25,
       rowNotes: ["C5", "B4", "A4", "G4", "F#4", "E4", "D4"],
       notes: [

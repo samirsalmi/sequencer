@@ -31,8 +31,10 @@ The global **RETRO** toggle forces every track to synth.
 | `src/app/services/master-mixer.service.ts` | Per-track channels (fader → filter → delay/reverb sends), master bus, LFO |
 | `src/app/services/instruments/` | Poly / bass / distortion synths, drum synth, sample engine |
 | `src/app/data/sample-manifests.ts` | Which sample files exist, at which pitch |
-| `src/app/data/playlist-presets.ts` | Built-in songs and instrument presets |
+| `src/app/data/playlist-presets.ts` | Instrument presets; the playlist (built from the song catalog) |
+| `src/app/data/songs/` | Built-in songs as compact note lists, each loaded on demand |
+| `scripts/build-songs.py`, `scripts/song-recipes.py` | Builds songs from Guitar Pro / MIDI transcriptions (instruments only) |
 | `src/app/utils/music-theory.ts` | Notes, scales, chords (single source of truth) |
 | `src/app/utils/musicxml-parser.ts` | MusicXML / MXL import |
 
-More detail: [`AI.md`](AI.md) (architecture and instrument catalogue), [`PRESET-FORMAT.md`](PRESET-FORMAT.md), [`loomin-composer-guide.md`](loomin-composer-guide.md), [`docs/sample-library.md`](docs/sample-library.md).
+More detail: [`AI.md`](AI.md) (architecture and instrument catalogue), [`limitations.md`](limitations.md), [`docs/song-sources.md`](docs/song-sources.md), [`PRESET-FORMAT.md`](PRESET-FORMAT.md), [`loomin-composer-guide.md`](loomin-composer-guide.md), [`docs/sample-library.md`](docs/sample-library.md).

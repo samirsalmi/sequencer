@@ -101,7 +101,7 @@ export const NIGHTMARE: SongDef = {
       instrumentPreset: "distGuitar",
       playbackMode: "sample",
       sampleSet: "dist-guitar",
-      volume: 0.45,
+      volume: 0.33,
       pan: -0.15,
       rowNotes: ["C#4", "B3", "A3", "G3", "C#3", "B2"],
       notes: [
@@ -202,7 +202,7 @@ export const NIGHTMARE: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 1.3,
+      volume: 0.9,
       rowNotes: ["Crash", "Ride", "Hi-Hat", "Snare", "Tom Mid", "Kick"],
       notes: [
         [576,3,1,0.91], [579,3,1,0.91], [582,5,1,1], [585,5,1,1], [588,4,1,1], [591,4,1,1], [594,5,1,1], [597,5,1,1], [600,4,1,1], [603,4,1,1],

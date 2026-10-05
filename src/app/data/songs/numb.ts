@@ -20,7 +20,7 @@ export const NUMB: SongDef = {
       synthType: "sawtooth",
       instrumentPreset: "polySynth",
       playbackMode: "synth",
-      volume: 0.3,
+      volume: 0.55,
       pan: 0.2,
       reverbSend: 0.3,
       rowNotes: ["A5", "G#5", "F#5", "E5", "C#5"],
@@ -128,7 +128,7 @@ export const NUMB: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 1.3,
+      volume: 1.6,
       rowNotes: ["Crash", "Open Hi-Hat", "Hi-Hat", "Snare", "Kick"],
       notes: [
         [0,2,1,0.63], [0,4,1,0.63], [1,2,1,0.44], [4,2,1,0.44], [7,2,1,0.63], [9,2,1,0.44], [10,2,1,0.44], [12,2,1,0.44], [13,2,1,0.63], [16,2,1,0.63],
@@ -168,7 +168,7 @@ export const NUMB: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 0.8,
+      volume: 1.5,
       rowNotes: ["Clap"],
       notes: [
         [4,0,1,0.63], [12,0,1,0.63], [20,0,1,0.63], [28,0,1,0.63], [36,0,1,0.63], [44,0,1,0.63], [52,0,1,0.63],

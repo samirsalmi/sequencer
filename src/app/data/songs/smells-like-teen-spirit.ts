@@ -85,7 +85,7 @@ export const SMELLS_LIKE_TEEN_SPIRIT: SongDef = {
       instrumentPreset: "distGuitar",
       playbackMode: "sample",
       sampleSet: "dist-guitar",
-      volume: 0.45,
+      volume: 0.35,
       pan: 0.35,
       rowNotes: ["F#4", "F4", "D#4", "C#4", "C4", "A#3"],
       notes: [

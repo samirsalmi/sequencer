@@ -9,7 +9,7 @@ export const SONG_CATALOG: SongMeta[] = [
     load: () => import('./canon-in-d').then(m => m.CANON_IN_D) },
   { name: "Canon in D 2.0", artist: "Johann Pachelbel — Cello & Piano (wedding version)", bpm: 74, stepsPerBeat: 4, stepResolution: "16th", timeSignature: "4/4", stepCount: 320, scale: "major", rootNote: "D", trackCount: 4,
     load: () => import('./canon-in-d-2-0').then(m => m.CANON_IN_D_2_0) },
-  { name: "Happy Birthday to You", artist: "Traditional", bpm: 90, stepsPerBeat: 4, stepResolution: "16th", timeSignature: "3/4", stepCount: 108, scale: "major", rootNote: "C", trackCount: 2,
+  { name: "Happy Birthday to You", artist: "Traditional", bpm: 90, stepsPerBeat: 4, stepResolution: "16th", timeSignature: "3/4", stepCount: 216, scale: "major", rootNote: "C", trackCount: 8,
     load: () => import('./happy-birthday-to-you').then(m => m.HAPPY_BIRTHDAY_TO_YOU) },
   { name: "Enter Sandman", artist: "Metallica", bpm: 124, stepsPerBeat: 4, stepResolution: "16th", timeSignature: "4/4", stepCount: 576, scale: "naturalMinor", rootNote: "E", trackCount: 11,
     load: () => import('./enter-sandman').then(m => m.ENTER_SANDMAN) },

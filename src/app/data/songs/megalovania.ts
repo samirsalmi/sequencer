@@ -94,7 +94,7 @@ export const MEGALOVANIA: SongDef = {
       instrumentPreset: "distGuitar",
       playbackMode: "sample",
       sampleSet: "dist-guitar",
-      volume: 0.45,
+      volume: 0.6,
       pan: 0.3,
       delaySend: 0.15,
       reverbSend: 0.15,

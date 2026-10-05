@@ -150,7 +150,7 @@ export const AFTERLIFE: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 1.3,
+      volume: 1.15,
       rowNotes: ["Crash", "Ride", "Hi-Hat", "Snare", "Tom High", "Tom Mid", "Tom Low", "Kick"],
       notes: [
         [64,6,1,0.45], [80,6,1,0.55], [96,6,1,0.65], [104,6,1,0.6], [108,6,1,0.7], [112,3,1,0.3], [112,7,1,0.7], [113,3,1,0.35], [114,3,1,0.4], [115,3,1,0.45],

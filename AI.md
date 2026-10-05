@@ -28,7 +28,8 @@ A browser-based music sequencer and visualizer built with **Angular** + **Tailwi
 | **Samples** | `sample-engine.service.ts` | Fetch → Cache API → decode → AudioBufferSourceNode playback. Scheduling is synchronous: nearest decoded sample is re-pitched; if none, the caller falls back to synth |
 | **Mixer** | `master-mixer.service.ts` | Per-track fader → filter → pan, post-pan delay/reverb sends, damped stereo reverb, tape-style delay, glue compressor + limiter |
 | **Drums** | `drum-engine.service.ts` | Synthesized + sampled drum hits (Kick, Snare, Hi-Hat, Toms, Ride, Crash, Clap) |
-| **Data** | `data/playlist-presets.ts` | Built-in song presets (SequencePreset[] array) |
+| **Data** | `data/playlist-presets.ts` | Instrument presets + the playlist (`PLAYLIST_PRESETS`, built from the song catalog) |
+| **Data** | `data/songs/` | Built-in songs: compact note lists (`song-format.ts`), one lazy-loaded chunk per song; `index.ts` is the catalog |
 | **Data** | `data/sample-manifests.ts` | Sample set definitions (SAMPLE_SETS, drum file map) |
 
 ---
@@ -100,9 +101,23 @@ The **distortion** engine adds: asymmetric tube waveshaper (distortion 0–1, dr
 
 ---
 
+## Built-in Songs
+
+- Stored in `src/app/data/songs/<id>.ts` as `SongDef`: per track a `notes` list of `[step, row, lengthInSteps, velocity]`,
+  expanded to the editor grid by `expandSong()` when the song is selected. `index.ts` (the catalog) holds only what the
+  playlist shows plus a `load()` that imports the song chunk.
+- `stepsPerBeat` set ⇒ `bpm` is the real tempo (step = 60 / (bpm × stepsPerBeat)); without it, legacy presets use
+  step = 30 / bpm.
+- Generated from Guitar Pro / MIDI transcriptions: edit `scripts/song-recipes.py`, then
+  `SONG_SOURCES=<folder> python3 scripts/build-songs.py <id>` (sources: `docs/song-sources.md`). Don't hand-edit
+  generated files. `afterlife`, `stolen-dance`, `happy-birthday-to-you`, `fur-elise`, `canon-in-d*` are hand-written.
+- **Songs are instruments only**: never add a vocal part, not even a vocal melody played on an instrument. The converter
+  refuses vocal-looking source tracks and `songs.spec.ts` checks track names.
+- Known limits: `limitations.md`.
+
 ## Preset Format (JSON)
 
-Presets live in `playlist-presets.ts` as objects conforming to `SequencePreset`:
+Presets conform to `SequencePreset` (user songs are stored this way; built-in songs are expanded into it):
 
 - `name`, `artist`, `bpm`, `scale`, `rootNote` — song identity
 - `stepCount` — grid length (8–216+)

@@ -101,7 +101,7 @@ export const THRILLER: SongDef = {
       instrumentPreset: "guitar",
       playbackMode: "sample",
       sampleSet: "electric-guitar",
-      volume: 0.35,
+      volume: 0.5,
       pan: 0.35,
       rowNotes: ["D4", "C4", "A3", "G3"],
       notes: [
@@ -173,7 +173,7 @@ export const THRILLER: SongDef = {
       instrumentPreset: "violin",
       playbackMode: "sample",
       sampleSet: "violin",
-      volume: 0.45,
+      volume: 0.32,
       reverbSend: 0.35,
       rowNotes: ["A4", "G#4", "G4", "F4", "E4", "D4", "C4", "B3", "A#3", "A3", "G#3", "G3"],
       notes: [
@@ -193,7 +193,7 @@ export const THRILLER: SongDef = {
       instrumentPreset: "cello",
       playbackMode: "sample",
       sampleSet: "cello",
-      volume: 0.5,
+      volume: 0.32,
       reverbSend: 0.3,
       rowNotes: ["F3", "D3"],
       notes: [

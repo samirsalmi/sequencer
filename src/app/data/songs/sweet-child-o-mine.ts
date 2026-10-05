@@ -83,7 +83,7 @@ export const SWEET_CHILD_O_MINE: SongDef = {
       instrumentPreset: "distGuitar",
       playbackMode: "sample",
       sampleSet: "dist-guitar",
-      volume: 0.45,
+      volume: 0.35,
       pan: -0.4,
       rowNotes: ["F#4", "F4", "D#4", "C#4", "B3", "A#3", "G#3", "F#3", "D#3", "C#3", "B2", "A#2", "F#2"],
       notes: [
@@ -110,7 +110,7 @@ export const SWEET_CHILD_O_MINE: SongDef = {
       instrumentPreset: "guitar",
       playbackMode: "sample",
       sampleSet: "electric-guitar",
-      volume: 0.45,
+      volume: 0.6,
       pan: 0.45,
       reverbSend: 0.25,
       rowNotes: ["F#4", "F4", "D#4", "C#4", "B3", "A#3", "G#3", "F#3", "D#3", "C#3", "B2", "A#2", "F#2"],
@@ -137,7 +137,7 @@ export const SWEET_CHILD_O_MINE: SongDef = {
       instrumentPreset: "bass",
       playbackMode: "sample",
       sampleSet: "electric-bass",
-      volume: 0.6,
+      volume: 0.5,
       rowNotes: ["A#3", "G#3", "F#3", "F3", "E3", "D#3", "C#3", "B2", "G#2", "F#2", "F2", "E2", "D#2", "C#2", "C2", "B1", "G#1", "F#1", "D#1"],
       notes: [
         [126,8,2,1], [128,6,6,1], [134,3,4,1], [138,6,2,1], [140,3,2,1], [142,2,2,1], [144,1,4,1], [148,0,2,1], [150,1,2,1], [152,2,2,1],
@@ -155,7 +155,7 @@ export const SWEET_CHILD_O_MINE: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 1.3,
+      volume: 1.8,
       rowNotes: ["Crash", "Ride", "Open Hi-Hat", "Hi-Hat", "Snare", "Tom Low", "Kick"],
       notes: [
         [128,0,1,0.81], [128,3,1,0.57], [128,6,1,0.81], [132,3,1,0.57], [136,3,1,0.57], [140,3,1,0.57], [142,1,1,0.81], [143,1,1,0.81], [144,1,1,0.81], [144,3,1,0.57],

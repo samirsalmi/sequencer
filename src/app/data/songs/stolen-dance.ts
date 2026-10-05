@@ -63,7 +63,7 @@ export const STOLEN_DANCE: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 0.45,
+      volume: 1.2,
       reverbSend: 0.15,
       rowNotes: ["Snare", "Hi-Hat", "Kick"],
       notes: [

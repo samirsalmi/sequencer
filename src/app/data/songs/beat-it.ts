@@ -147,7 +147,7 @@ export const BEAT_IT: SongDef = {
       instrumentPreset: "bass",
       playbackMode: "sample",
       sampleSet: "electric-bass",
-      volume: 0.75,
+      volume: 0.6,
       rowNotes: ["G2", "F#2", "E2", "D2", "C#2", "B1", "G1", "E1"],
       notes: [
         [46,7,4,1], [50,6,2,1], [52,5,2,1], [54,0,2,0.97], [56,2,4,1], [62,1,4,1], [66,2,2,0.97], [68,3,2,1], [72,3,2,1], [78,7,4,1],
