@@ -74,7 +74,7 @@ describe('INSTRUMENT_PRESETS', () => {
 
   it('every melodic instrument has both a realistic and a retro voice', () => {
     for (const inst of Object.values(INSTRUMENT_PRESETS)) {
-      if (inst.name === 'drums') continue;
+      if (inst.name === 'drums' || inst.synthOnly) continue;
       expect(inst.sampleSet, `${inst.name} has no sample set`).toBeDefined();
       expect(inst.oscType, inst.name).toBeDefined();
     }

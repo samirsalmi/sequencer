@@ -8,11 +8,17 @@ export function parseTimeSignature(timeSig: string): ParsedTimeSig {
   return { numerator: parseInt(parts[0], 10) || 4, denominator: parseInt(parts[1], 10) || 4 };
 }
 
-export type StepResolution = '16th' | '8th';
+/** Grid resolution: what one step is. '16th+triplet' (12 steps per beat) holds both straight 16ths and triplets. */
+export type StepResolution = '16th' | '8th' | '32nd' | '8th-triplet' | '16th-triplet' | '16th+triplet';
+
+/** Steps per whole note for each resolution. */
+export const STEPS_PER_WHOLE: Record<StepResolution, number> = {
+  '8th': 8, '16th': 16, '32nd': 32, '8th-triplet': 12, '16th-triplet': 24, '16th+triplet': 48,
+};
 
 export function stepsPerMeasure(timeSig: string, resolution: StepResolution): number {
   const { numerator, denominator } = parseTimeSignature(timeSig);
-  const resolutionBase = resolution === '16th' ? 16 : 8;
+  const resolutionBase = STEPS_PER_WHOLE[resolution] ?? 16;
   return numerator * (resolutionBase / denominator);
 }
 

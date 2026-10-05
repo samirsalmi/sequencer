@@ -4,7 +4,7 @@ import { parseTimeSignature, stepsPerMeasure, stepsPerBeat, isMeasureStart, isBe
 
 // Map preset name → how many tracks it originally ships with (built-ins are protected from deletion)
 const PRESET_ORIGINAL_TRACK_COUNTS: Record<string, number> = Object.fromEntries(
-  PLAYLIST_PRESETS.map(p => [p.name, p.tracks.length])
+  PLAYLIST_PRESETS.map(p => [p.name, p.trackCount ?? p.tracks.length])
 );
 import { noteToMidi, midiToFrequency } from '../utils/music-theory';
 import { MasterMixerService } from './master-mixer.service';
@@ -15,6 +15,14 @@ import { DrumEngineService } from './instruments/drum-engine.service';
 import { SampleEngineService } from './instruments/sample-engine.service';
 
 const STORAGE_KEY = 'loomin_custom_tracks';
+
+/**
+ * Length of one grid step. Songs with `stepsPerBeat` use the real tempo (bpm = quarter notes per minute);
+ * older songs use the original rule, one step = 30 / bpm seconds.
+ */
+export function secondsPerStep(preset: Pick<SequencePreset, 'bpm' | 'stepsPerBeat'>): number {
+  return preset.stepsPerBeat ? 60 / (preset.bpm * preset.stepsPerBeat) : 30 / preset.bpm;
+}
 const DRUM_NAME_RE = /^(Kick|Snare|Hi-Hat|Open Hi-Hat|Tom Low|Tom Mid|Tom High|Ride|Crash|Clap)$/;
 
 type CustomTrackStore = Record<string, SequencePreset['tracks']>;
@@ -493,8 +501,8 @@ export class AudioService {
       // 100 ms lookahead survives timer jitter and background-tab throttling far better than 40 ms
       const lookAhead = this.mixer.ctx.currentTime + 0.1;
       while (baseTime < lookAhead) {
-        // Read BPM every step so tempo changes apply while playing. One step = 30 / bpm s (see PRESET-FORMAT.md).
-        const stepDuration = 30 / (this.preset()?.bpm ?? preset.bpm);
+        // Read BPM every step so tempo changes apply while playing.
+        const stepDuration = secondsPerStep(this.preset() ?? preset);
         const step = this.currentBeat();
         const swingOffset = (step % 2 !== 0) ? stepDuration * (swing() / 100) * 0.5 : 0;
         const gridTime = baseTime + swingOffset;

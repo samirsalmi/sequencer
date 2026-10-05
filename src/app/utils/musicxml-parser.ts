@@ -278,6 +278,7 @@ export function parseMusicXML(xmlString: string): SequencePreset {
     timeSignature: `${beats}/${beatType}`,
     stepCount: finalStepCount,
     stepResolution: '16th',
+    stepsPerBeat: 4, // the file's tempo is the real tempo on this 16th-note grid
     swingPercentage: 0,
     tracks,
   };

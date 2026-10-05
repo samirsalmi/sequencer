@@ -226,6 +226,8 @@ export class App implements OnInit {
         stepCount: sc,
         timeSignature: this.newSongTimeSignature,
         stepResolution: this.newSongStepResolution,
+        // The BPM typed in the dialog is the real tempo on the chosen grid
+        stepsPerBeat: this.newSongStepResolution === '8th' ? 2 : 4,
         tracks: [{
           trackName: 'Track 1',
           synthType: 'triangle',
@@ -499,10 +501,14 @@ export class App implements OnInit {
     return inst?.sampleSet;
   }
 
-  selectPreset(index: number): void {
+  async selectPreset(index: number): Promise<void> {
     this.selectedPresetIndex.set(index);
     this.activeTrackIndex.set(0);
-    this.audio.loadPreset(this.playlists()[index]);
+    const preset = this.playlists()[index];
+    // Built-in songs download their notes on first use
+    const full = preset.load ? await preset.load() : preset;
+    if (this.selectedPresetIndex() !== index) return; // another song was picked while this one loaded
+    this.audio.loadPreset(full);
   }
 
   handleGridClick(event: MouseEvent, trackIdx: number, row: number, step: number): void {
@@ -560,6 +566,6 @@ export class App implements OnInit {
   }
 
   ngOnInit(): void {
-    this.audio.loadPreset(PLAYLIST_PRESETS[0]);
+    this.selectPreset(0);
   }
 }

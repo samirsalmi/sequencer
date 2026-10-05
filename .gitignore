@@ -53,3 +53,6 @@ __pycache__/
 Thumbs.db
 .vercel
 /sampless/
+
+# Third-party Guitar Pro / MIDI transcriptions used by scripts/build-songs.py (see docs/song-sources.md)
+/song-sources/
