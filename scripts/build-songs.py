@@ -381,6 +381,11 @@ def build(recipe_id, r):
         else:
             evs, total_q = read_midi(src, part['track'], bars, part.get('channel'), part.get('transpose', 0), part.get('role') == 'drums')
         role = part.get('role', 'single')
+        if part.get('pm'):  # MIDI has no palm-mute marks: force the palm-muted samples for this part
+            for e in evs:
+                e.pm = True
+        if part.get('from_q') is not None:  # this part only plays from that point of the segment (in quarter notes)
+            evs = [e for e in evs if e.start >= part['from_q']]
         if part.get('drop_below') is not None:
             evs = [e for e in evs if e.drum or e.pitch >= part['drop_below']]
         if part.get('keep_above') is not None:
