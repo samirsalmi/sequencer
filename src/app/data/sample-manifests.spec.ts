@@ -1,4 +1,4 @@
-import { SAMPLE_SETS, SAMPLE_SET_ALIASES, getDrumSamplePath, getSampleSet, sampleUrl, samplesByDistance } from './sample-manifests';
+import { DRUM_LAYERS, DRUM_ROUND_ROBINS, SAMPLE_SETS, SAMPLE_SET_ALIASES, getDrumLayerUrls, getDrumSamplePath, getSampleSet, sampleUrl, samplesByDistance } from './sample-manifests';
 import { INSTRUMENT_PRESETS, PLAYLIST_PRESETS } from './playlist-presets';
 import { noteToMidi } from '../utils/music-theory';
 
@@ -48,6 +48,18 @@ describe('SAMPLE_SETS', () => {
     for (const d of ['Kick', 'Snare', 'Hi-Hat', 'Open Hi-Hat', 'Tom Low', 'Tom Mid', 'Tom High', 'Ride', 'Crash', 'Clap']) {
       expect(getDrumSamplePath(d), d).toBe(`samples/drums/${({ 'Hi-Hat': 'hat-closed', 'Open Hi-Hat': 'hat-open' } as Record<string, string>)[d] ?? d.toLowerCase().replace(' ', '-')}.flac`);
     }
+  });
+});
+
+describe('drum kit', () => {
+  it('has velocity layers x round robins for the acoustic kit, and leaves the clap on the single sample', () => {
+    for (const d of ['Kick', 'Snare', 'Hi-Hat', 'Open Hi-Hat', 'Tom Low', 'Tom Mid', 'Tom High', 'Ride', 'Crash']) {
+      const layers = getDrumLayerUrls(d)!;
+      expect(layers.length, d).toBe(DRUM_LAYERS);
+      for (const takes of layers) expect(takes.length, d).toBe(DRUM_ROUND_ROBINS);
+      expect(layers[0][0], d).toMatch(/^samples\/drums-rusty\/[a-z-]+\/v1_rr1\.flac$/);
+    }
+    expect(getDrumLayerUrls('Clap')).toBeNull();
   });
 });
 

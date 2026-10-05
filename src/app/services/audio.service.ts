@@ -497,7 +497,7 @@ export class AudioService {
         const stepDuration = 30 / (this.preset()?.bpm ?? preset.bpm);
         const step = this.currentBeat();
         const swingOffset = (step % 2 !== 0) ? stepDuration * (swing() / 100) * 0.5 : 0;
-        const stepTime = baseTime + swingOffset;
+        const gridTime = baseTime + swingOffset;
         const gs = this.grids();
         const livePreset = this.preset();
         if (!livePreset) break;
@@ -508,6 +508,9 @@ export class AudioService {
           const g = gs[t];
           const channel = this.trackChannels[t];
           if (!g || !channel) continue;
+          // Humanize: each track drifts a few ms off the grid per step (notes of a chord stay together)
+          const human = livePreset.humanize ?? 0;
+          const stepTime = gridTime + (human > 0 ? (Math.random() * 2 - 1) * 0.012 * human : 0);
           const isDrumTrack = track.rowNotes.some(n => DRUM_NAME_RE.test(n));
           const arpOn = !isDrumTrack && this.arpEnabled()?.[t];
           const prevFreq = this.lastFreqByTrack.get(t) ?? 0;
@@ -527,7 +530,8 @@ export class AudioService {
             }
             let freq = 0;
             if (!isDrum) try { freq = midiToFrequency(noteToMidi(noteName)); } catch { continue; }
-            activeRows.push({ noteName, freq, velocity: cellVal, tieCount, isDrum });
+            const velocity = human > 0 ? Math.min(1, cellVal * (1 + (Math.random() * 2 - 1) * 0.12 * human)) : cellVal;
+            activeRows.push({ noteName, freq, velocity, tieCount, isDrum });
           }
           const effectiveSampleSet = (): string | undefined => {
             const override = this.perTrackSampleSet()[t];

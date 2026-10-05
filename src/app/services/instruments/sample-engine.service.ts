@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { MasterMixerService } from '../master-mixer.service';
-import { getSampleSet, getDrumSamplePath, sampleUrl, samplesByDistance } from '../../data/sample-manifests';
+import { getSampleSet, getDrumSamplePath, getDrumLayerUrls, sampleUrl, samplesByDistance } from '../../data/sample-manifests';
 import { noteToMidi } from '../../utils/music-theory';
 import { driveCurve } from './poly-synth.service';
 
@@ -21,6 +21,10 @@ export class SampleEngineService {
   /** URLs that 404'd or failed to decode (e.g. Git LFS pointer files) — never refetched this session. */
   private readonly failedUrls = new Set<string>();
   private readonly inFlight = new Map<string, Promise<AudioBuffer | null>>();
+  /** Round-robin position per drum, so repeated hits alternate between takes. */
+  private readonly drumRoundRobin = new Map<string, number>();
+  /** Last open hi-hat per output, so a closed hi-hat can choke it like a real hi-hat. */
+  private readonly openHats = new Map<AudioNode, GainNode>();
 
   readonly isLoading = signal(false);
   readonly loadProgress = signal(0);
@@ -77,7 +81,8 @@ export class SampleEngineService {
       const ringEnd = start + Math.min(set.releaseSeconds ?? Infinity, buffer.duration / rate);
       // Preview clicks have no duration: let them ring like a held key
       const noteEnd = duration != null ? Math.min(start + duration, ringEnd) : ringEnd;
-      this._playBuffer(buffer, velocity, destination, start, noteEnd, ringEnd, set.noteOffRelease, rate, true, opts, set.attackSeconds);
+      const voice = set.distorted ? { ...opts, drive: undefined } : opts; // already distorted by a real amp
+      this._playBuffer(buffer, velocity, destination, start, noteEnd, ringEnd, set.noteOffRelease, rate, true, voice, set.attackSeconds);
       return true;
     }
     return false;
@@ -96,6 +101,10 @@ export class SampleEngineService {
 
   /** Returns false when the drum has no sample or it is not decoded yet (caller should use the synth drum). */
   playDrum(drumName: string, velocity: number, destination: AudioNode, time?: number): boolean {
+    const start = time ?? this.ctx.currentTime;
+    if (drumName === 'Hi-Hat' || drumName === 'Open Hi-Hat') this._chokeOpenHat(destination, start);
+    const layers = getDrumLayerUrls(drumName);
+    if (layers && this._playDrumLayer(drumName, layers, velocity, destination, start)) return true;
     const url = getDrumSamplePath(drumName);
     if (!url || this.failedUrls.has(url)) return false;
     const buffer = this.bufferCache.get(url);
@@ -103,15 +112,51 @@ export class SampleEngineService {
       this._load(url);
       return false;
     }
-    const start = time ?? this.ctx.currentTime;
     const end = start + buffer.duration;
-    this._playBuffer(buffer, velocity, destination, start, end, end, 0.02, 1, false);
+    const gain = this._playBuffer(buffer, velocity, destination, start, end, end, 0.02, 1, false);
+    if (drumName === 'Open Hi-Hat') this.openHats.set(destination, gain);
     return true;
+  }
+
+  /**
+   * Multi-velocity drum: the velocity picks the layer (soft hits sound soft, not just quieter), repeated hits
+   * alternate round robins. Falls back to the nearest loaded layer; false if none is decoded yet.
+   */
+  private _playDrumLayer(drumName: string, layers: string[][], velocity: number, destination: AudioNode, start: number): boolean {
+    const vel = Math.max(0, Math.min(1, velocity));
+    const want = vel < 0.55 ? 0 : vel < 0.72 ? 1 : vel < 0.88 ? 2 : 3;
+    const rr = this.drumRoundRobin.get(drumName) ?? 0;
+    this.drumRoundRobin.set(drumName, rr + 1);
+    const order = layers.map((_, i) => i).sort((a, b) => Math.abs(a - want) - Math.abs(b - want));
+    for (const li of order) {
+      const takes = layers[li];
+      for (let k = 0; k < takes.length; k++) {
+        const url = takes[(rr + k) % takes.length];
+        const buffer = this.bufferCache.get(url);
+        if (!buffer) { if (!this.failedUrls.has(url)) this._load(url); continue; }
+        const end = start + buffer.duration;
+        // The layer already carries most of the dynamics, so velocity only trims the level a little
+        const gain = this._playBuffer(buffer, 0.6 + 0.4 * vel, destination, start, end, end, 0.02, 1, false);
+        if (drumName === 'Open Hi-Hat') this.openHats.set(destination, gain);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** A new hi-hat hit closes the hi-hat: fade out the open hat still ringing on this output. */
+  private _chokeOpenHat(destination: AudioNode, at: number): void {
+    const open = this.openHats.get(destination);
+    if (!open) return;
+    open.gain.cancelScheduledValues(at);
+    open.gain.setTargetAtTime(0, at, 0.015);
+    this.openHats.delete(destination);
   }
 
   /** Loads every drum sample so the first bar of a drum track doesn't fall back to the synth kit. */
   preloadDrums(names: string[]): Promise<unknown> {
-    return Promise.all(names.map(getDrumSamplePath).filter((u): u is string => !!u).map(u => this._load(u)));
+    const urls = names.flatMap(n => [...(getDrumLayerUrls(n)?.flat() ?? []), getDrumSamplePath(n)]).filter((u): u is string => !!u);
+    return Promise.all(urls.map(u => this._load(u)));
   }
 
   isSampleSetLoaded(setName: string): boolean {
@@ -133,7 +178,7 @@ export class SampleEngineService {
   private _playBuffer(
     buffer: AudioBuffer, velocity: number, destination: AudioNode, start: number, noteEnd: number, ringEnd: number,
     release: number, rate: number, velocityTone: boolean, opts: SampleVoiceOptions = {}, attack = 0,
-  ): void {
+  ): GainNode {
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
     source.playbackRate.value = rate;
@@ -167,18 +212,27 @@ export class SampleEngineService {
       node = node.connect(tone);
     }
     if (opts.drive) {
+      // Amp-style chain: tighten the lows before clipping, then a speaker-cabinet rolloff to tame the fizz
+      const tighten = this.ctx.createBiquadFilter();
+      tighten.type = 'highpass';
+      tighten.frequency.value = 110;
       const pre = this.ctx.createGain();
       pre.gain.value = 1 + opts.drive * 6;
       const shaper = this.ctx.createWaveShaper();
       shaper.curve = driveCurve(opts.drive);
       shaper.oversample = '4x';
+      const cab = this.ctx.createBiquadFilter();
+      cab.type = 'lowpass';
+      cab.frequency.value = 5000;
+      cab.Q.value = 0.7;
       const post = this.ctx.createGain();
       post.gain.value = 0.35;
-      node = node.connect(pre).connect(shaper).connect(post);
+      node = node.connect(tighten).connect(pre).connect(shaper).connect(cab).connect(post);
     }
     node.connect(gain).connect(destination);
     source.start(start);
     source.stop(stop);
+    return gain;
   }
 
   /** Fetch (via Cache API) and decode once; concurrent callers share the same promise. */

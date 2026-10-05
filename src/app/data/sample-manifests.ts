@@ -21,6 +21,8 @@ export interface SampleSet {
   noteOffRelease: number;
   /** Optional fade-in in seconds: softens the scratchy bow / breath onset of sustained instruments. */
   attackSeconds?: number;
+  /** Recorded through a real amp: the app's own distortion is skipped so it isn't distorted twice. */
+  distorted?: boolean;
 }
 
 
@@ -35,6 +37,8 @@ function makeSet(name: string, label: string, noteOffRelease: number, fileNotes:
   const keys = [...samples.keys()];
   return { name, label, basePath: `${BASE}${name}/`, samples, noteRange: [Math.min(...keys), Math.max(...keys)], noteOffRelease, releaseSeconds, attackSeconds };
 }
+
+const POWER_ROOTS = ['C2', 'Cs2', 'D2', 'Ds2', 'E2', 'F2', 'Fs2', 'G2', 'Gs2', 'A2', 'As2', 'B2', 'C3', 'Cs3', 'D3', 'Ds3', 'E3', 'F3'];
 
 export const SAMPLE_SETS: Record<string, SampleSet> = {
   // Splendid Grand Piano (Steinway D), public domain
@@ -63,6 +67,13 @@ export const SAMPLE_SETS: Record<string, SampleSet> = {
   'trumpet': makeSet('trumpet', 'Trumpet', 0.2, ['F3', 'A3', 'C4', 'Ds4', 'F4', 'G4', 'As4', 'D5', 'F5', 'A5', 'C6']),
   // VSCO 2 CE, CC0
   'french-horn': makeSet('french-horn', 'French Horn', 0.25, ['A1', 'C2', 'Ds2', 'G2', 'D3', 'F3', 'C4', 'D5', 'F5']),
+  // Freesound pack 14939 by Ax_Grinder, CC BY 3.0 — real amp distortion. Each sample is a whole power chord
+  // (root + fifth); the file name is the root, so one grid note plays the full chord.
+  'dist-power': { ...makeSet('dist-power', 'Distorted Power Chords', 0.12, POWER_ROOTS), distorted: true },
+  'dist-power-pm': { ...makeSet('dist-power-pm', 'Distorted Power Chords (Palm Mute)', 0.06, POWER_ROOTS), distorted: true },
+  // Freesound pack 643 by SpeedY, CC0 — real amp distortion, single notes
+  'dist-guitar': { ...makeSet('dist-guitar', 'Distorted Guitar', 0.12, ['E2', 'A2', 'D3', 'E3', 'G3', 'A3', 'B3', 'D4', 'E4', 'G4', 'B4', 'E5', 'A5']), distorted: true },
+  'dist-guitar-pm': { ...makeSet('dist-guitar-pm', 'Distorted Guitar (Palm Mute)', 0.06, ['E2', 'A2', 'D3', 'E3', 'G3', 'A3', 'B3', 'D4', 'E4']), distorted: true },
 };
 
 /** Old set names (still stored in saved songs / browser storage) → current set. */
@@ -93,6 +104,32 @@ const drumFiles: Record<string, string> = {
   'Crash': 'crash.flac',
   'Clap': 'clap.flac',
 };
+
+/**
+ * Big Rusty Drums (Karoryfer, CC0), built by scripts/build-drums.py: drum name → folder in samples/drums-rusty/.
+ * Each drum has DRUM_LAYERS velocity layers (soft → hard) x DRUM_ROUND_ROBINS alternate takes: v<layer>_rr<n>.flac.
+ */
+const DRUM_KIT: Record<string, string> = {
+  'Kick': 'kick',
+  'Snare': 'snare',
+  'Hi-Hat': 'hat-closed',
+  'Open Hi-Hat': 'hat-open',
+  'Tom Low': 'tom-low',
+  'Tom Mid': 'tom-mid',
+  'Tom High': 'tom-high',
+  'Ride': 'ride',
+  'Crash': 'crash',
+};
+export const DRUM_LAYERS = 4;
+export const DRUM_ROUND_ROBINS = 2;
+
+/** URLs of a multi-velocity drum as [layer][round robin], softest layer first, or null (use getDrumSamplePath). */
+export function getDrumLayerUrls(drumName: string): string[][] | null {
+  const folder = DRUM_KIT[drumName];
+  if (!folder) return null;
+  return Array.from({ length: DRUM_LAYERS }, (_, l) =>
+    Array.from({ length: DRUM_ROUND_ROBINS }, (_, r) => `${BASE}drums-rusty/${folder}/v${l + 1}_rr${r + 1}.flac`));
+}
 
 /** URL of the sample for a drum name, or null. */
 export function getDrumSamplePath(drumName: string): string | null {
