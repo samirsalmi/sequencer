@@ -10,7 +10,8 @@ A part maps one source track to app tracks:
   role 'bass' | anything else → one track; `config` overrides instrument, sample set, volume, pan, sends.
   Other part options: transpose, channel (MIDI), pm (force palm-muted samples), roots_only (lowest note of each chord,
   e.g. to derive a bass line), loose_power (play any chord holding root + 5th as that power chord), from_q (start partway in, in quarter notes), keep_above / keep_below / drop_below (pitch
-  filters), max_len (cap note length in steps).
+  filters), max_len (cap note length in steps), pedal (MIDI piano without pedal data: notes ring to the next bar line).
+  Recipe option bake_tempo: write a MIDI file's ritardandos / fermatas into the note positions (the song has one bpm).
 Sources are listed in docs/song-sources.md.
 """
 
@@ -18,6 +19,7 @@ CLEAN_GTR = dict(synthType='sawtooth', instrumentPreset='guitar', playbackMode='
 NYLON_GTR = dict(synthType='triangle', instrumentPreset='classicalGuitar', playbackMode='sample', sampleSet='nylon-guitar')
 STEEL_GTR = dict(synthType='sawtooth', instrumentPreset='acousticGuitar', playbackMode='sample', sampleSet='acoustic-guitar')
 PIANO = dict(synthType='triangle', instrumentPreset='piano', playbackMode='sample', sampleSet='acoustic-piano')
+UPRIGHT = dict(synthType='triangle', instrumentPreset='uprightPiano', playbackMode='sample', sampleSet='upright-piano')
 CELLO = dict(synthType='sawtooth', instrumentPreset='cello', playbackMode='sample', sampleSet='cello')
 TRUMPET = dict(synthType='sawtooth', instrumentPreset='trumpet', playbackMode='sample', sampleSet='trumpet')
 VIOLIN = dict(synthType='sawtooth', instrumentPreset='violin', playbackMode='sample', sampleSet='violin')
@@ -332,6 +334,18 @@ RECIPES = {
             dict(track=3, name='🥁 Drums', role='drums'),
         ],
     ),
+    'river-flows-in-you': dict(
+        name='River Flows in You', artist='Yiruma (이루마)',
+        source='MIDI transcription of the piano score (bitmidi.com), the whole piece: dynamics as written, pedal on every '
+               'bar, the ritardandos and the closing fermatas kept; the 3/4 and 5/4 bars of the score are kept as written',
+        file='Yiruma - River Flows in You.mid', bars=[(1, 44)], rootNote='A', scale='major', bake_tempo=True, humanize=0.3,
+        parts=[
+            # The pedal stacks a whole bar of notes: keep the level low so the master compressor / limiter
+            # never squash it (that's what made it sound harsh)
+            dict(track=1, name='🎹 Upright Piano', role='piano', pedal=True,
+                 config={**UPRIGHT, 'volume': 0.25, 'reverbSend': 0.5}),
+        ],
+    ),
     'inis-mona': dict(
         name='Inis Mona', artist='Eluveitie',
         source='Guitar Pro transcription (gprotab.net), bars 1–30 with repeats played: intro, verse, pre-chorus and chorus. '
@@ -371,6 +385,8 @@ PLAYLIST_ORDER = [
     'last-resort', 'eye-of-the-tiger', 'the-final-countdown',
     # video games
     'megalovania',
+    # piano
+    'river-flows-in-you',
     # folk metal
     'inis-mona',
     # indie / acoustic

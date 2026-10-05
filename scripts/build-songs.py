@@ -189,10 +189,43 @@ def midi_tempo_at(mid, tick):
     return 60_000_000 / tempo
 
 
-def read_midi(path, track_index, bars, channel=None, transpose=0, drums=False):
+def midi_tempo_map(mid):
+    """Sorted (tick, microseconds per quarter) of every tempo change."""
+    changes = []
+    for tr in mid.tracks:
+        t = 0
+        for msg in tr:
+            t += msg.time
+            if msg.type == 'set_tempo':
+                changes.append((t, msg.tempo))
+    changes.sort()
+    if not changes or changes[0][0] > 0:
+        changes.insert(0, (0, 500000))
+    return changes
+
+
+def read_midi(path, track_index, bars, channel=None, transpose=0, drums=False, pedal=False, bake_tempo=False):
+    """`pedal`: no sustain-pedal data in the file, so play it like a pianist changing pedal on every bar line: each
+    note rings until the next bar line (or until the same key is struck again).
+    `bake_tempo`: write the file's tempo changes (ritardandos, fermatas) into the note positions — at the starting
+    tempo a slowed-down beat simply takes more steps — since a song has one fixed bpm."""
     mid = mido.MidiFile(path)
     tpq = mid.ticks_per_beat
     starts, sigs = midi_bar_starts(mid)
+    tempo_map = midi_tempo_map(mid)
+    base = next(tp for t, tp in reversed(tempo_map) if t <= starts[bars[0][0] - 1])
+
+    def q(tick):
+        """Quarter notes at the starting tempo from tick 0 to `tick` (plain tick count unless baking the tempo)."""
+        if not bake_tempo:
+            return Fraction(tick, tpq)
+        total, (t0, tp) = Fraction(0), tempo_map[0]
+        for t1, tp1 in tempo_map[1:]:
+            if t1 >= tick:
+                break
+            total += Fraction((t1 - t0) * tp, tpq * base)
+            t0, tp = t1, tp1
+        return total + Fraction((tick - t0) * tp, tpq * base)
     tr = mid.tracks[track_index]
     notes, on = [], {}
     t = 0
@@ -212,19 +245,29 @@ def read_midi(path, track_index, bars, channel=None, transpose=0, drums=False):
             if key in on:
                 s, v = on.pop(key)
                 notes.append((s, t, msg.note, v))
+    if pedal:
+        onsets = defaultdict(list)
+        for s, _, p, _ in notes:
+            onsets[p].append(s)
+        held = []
+        for s, e, p, v in notes:
+            bar_end = next((t for t in starts if t > s), starts[-1] + tpq * 4)
+            restrike = next((t for t in sorted(onsets[p]) if t > s), bar_end)
+            held.append((s, max(e, min(bar_end, restrike)), p, v))
+        notes = held
     events, offset_q = [], Fraction(0)
     for first, last in bars:
         a, b = starts[first - 1], starts[last] if last < len(starts) else starts[-1] + tpq * 4
         for s, e, p, v in notes:
             if a <= s < b:
-                start = offset_q + Fraction(s - a, tpq)
+                start = offset_q + q(s) - q(a)
                 if drums:
                     name = GM_DRUMS.get(p)
                     if name:
                         events.append(Ev(start, Fraction(1, 4), None, max(0.3, min(1.0, v / 127 * DRUM_GAIN.get(p, 1.0))), drum=name))
                 else:
-                    events.append(Ev(start, Fraction(max(e - s, 1), tpq), p + transpose, max(0.3, min(1.0, 0.2 + 0.8 * v / 127))))
-        offset_q += Fraction(b - a, tpq)
+                    events.append(Ev(start, max(q(e) - q(s), Fraction(1, tpq)), p + transpose, max(0.3, min(1.0, 0.2 + 0.8 * v / 127))))
+        offset_q += q(b) - q(a)
     return events, offset_q
 
 
@@ -405,7 +448,8 @@ def build(recipe_id, r):
         if kind == 'gp':
             evs, total_q = read_gp(src, part['track'], bars, part.get('transpose', 0))
         else:
-            evs, total_q = read_midi(src, part['track'], bars, part.get('channel'), part.get('transpose', 0), part.get('role') == 'drums')
+            evs, total_q = read_midi(src, part['track'], bars, part.get('channel'), part.get('transpose', 0), part.get('role') == 'drums',
+                                    pedal=part.get('pedal', False), bake_tempo=r.get('bake_tempo', False))
         role = part.get('role', 'single')
         if part.get('pm'):  # MIDI has no palm-mute marks: force the palm-muted samples for this part
             for e in evs:
