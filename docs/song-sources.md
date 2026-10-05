@@ -37,6 +37,7 @@ Songs are instruments only: no vocal track is ever used (the converter refuses t
 | Eye of the Tiger — Survivor | [ryohey/lakh-midi](https://github.com/ryohey/lakh-midi) (Lakh MIDI Dataset, clean_midi) | `clean_midi/Survivor/Eye Of The Tiger.mid` | `lakh - Survivor - Eye Of The Tiger.mid` | 2–23 |
 | The Final Countdown — Europe | [ryohey/lakh-midi](https://github.com/ryohey/lakh-midi) (Lakh MIDI Dataset, clean_midi) | `clean_midi/Europe/The Final Countdown.1.mid` | `lakh - Europe - The Final Countdown.1.mid` | 8–35 |
 | Megalovania — Toby Fox (Undertale), rock arrangement | [AlexMi-Ha/GuitarTabs](https://github.com/AlexMi-Ha/GuitarTabs) | `Toby Fox - Megalovania.gp5` | `Toby Fox - Megalovania.gp5` | 1–24 |
+| Inis Mona — Eluveitie | [gprotab.net](https://gprotab.net) (downloaded by hand) | Inis Mona Guitar Pro tab | `Eluveitie - Inis Mona.gp5` | 1–5 + 2–5 + 6–15 + 12–15 + 16–29 + 26–30 (repeats played) |
 
 ## Hand-written songs (no transcription)
 

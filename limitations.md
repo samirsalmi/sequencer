@@ -9,8 +9,9 @@ What the built-in songs and the song converter can and can't do, and why. Source
   file. A song is only as accurate as its transcriber, and some MIDI arrangements simplify parts. For example, the
   Beat It MIDI has no guitar solo.
 - **Only GitHub was reachable.** The usual tab and music sites (Songsterr, Ultimate Guitar, MuseScore, BitMIDI,
-  FreeMIDI, YouTube) can't be reached from the environment the songs were built in. All sources therefore come from
-  public GitHub repositories, which is why some songs are missing or come from a particular arrangement.
+  FreeMIDI, YouTube) can't be reached from the environment the songs were built in. The songs built there therefore
+  come from public GitHub repositories, which is why some songs are missing or come from a particular arrangement.
+  A tab downloaded by hand works the same way: Inis Mona comes from gprotab.net.
 - **No transcription found:** Afterlife (Avenged Sevenfold) and Stolen Dance (Milky Chance).
   - Their hand-written intros were kept.
   - Afterlife's drum part is composed to follow its rhythm guitars, not transcribed.
