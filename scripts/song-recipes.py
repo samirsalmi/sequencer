@@ -342,8 +342,8 @@ RECIPES = {
         parts=[
             # The pedal stacks a whole bar of notes: keep the level low so the master compressor / limiter
             # never squash it (that's what made it sound harsh)
-            dict(track=1, name='🎹 Upright Piano', role='piano', pedal=True,
-                 config={**UPRIGHT, 'volume': 0.25, 'reverbSend': 0.5}),
+            dict(track=1, name='🎹 Piano', role='piano', pedal=True,
+                 config={**PIANO, 'volume': 0.25, 'reverbSend': 0.4}),
         ],
     ),
     'inis-mona': dict(
@@ -367,28 +367,30 @@ RECIPES = {
 }
 
 # Playlist order of every song file in src/app/data/songs (hand-written ones are not rebuilt from recipes).
-PLAYLIST_ORDER = [
-    # classics (hand-written)
-    'fur-elise', 'canon-in-d', 'canon-in-d-2-0', 'happy-birthday-to-you',
-    # Metallica
-    'enter-sandman', 'nothing-else-matters', 'one',
-    # Skillet
-    'hero', 'monster', 'awake-and-alive', 'comatose',
-    # Avenged Sevenfold
-    'hail-to-the-king', 'nightmare', 'afterlife',
-    # Michael Jackson
-    'billie-jean', 'beat-it', 'smooth-criminal', 'thriller',
-    # Linkin Park
-    'in-the-end', 'numb',
-    # more rock & metal
-    'sweet-child-o-mine', 'thunderstruck', 'smells-like-teen-spirit', 'chop-suey', 'down-with-the-sickness',
-    'last-resort', 'eye-of-the-tiger', 'the-final-countdown',
-    # video games
-    'megalovania',
-    # piano
-    'river-flows-in-you',
-    # folk metal
-    'inis-mona',
-    # indie / acoustic
-    'stolen-dance',
-]
+# Playlist categories, in order, and the order of every song file in src/app/data/songs inside them
+# (hand-written ones are not rebuilt from recipes). The app shows one category at a time.
+PLAYLIST = {
+    'Main': ['fur-elise', 'canon-in-d', 'canon-in-d-2-0', 'river-flows-in-you'],
+    'Draft': [
+        'happy-birthday-to-you',
+        # Metallica
+        'enter-sandman', 'nothing-else-matters', 'one',
+        # Skillet
+        'hero', 'monster', 'awake-and-alive', 'comatose',
+        # Avenged Sevenfold
+        'hail-to-the-king', 'nightmare', 'afterlife',
+        # Michael Jackson
+        'billie-jean', 'beat-it', 'smooth-criminal', 'thriller',
+        # Linkin Park
+        'in-the-end', 'numb',
+        # more rock & metal
+        'sweet-child-o-mine', 'thunderstruck', 'smells-like-teen-spirit', 'chop-suey', 'down-with-the-sickness',
+        'last-resort', 'eye-of-the-tiger', 'the-final-countdown',
+        # video games
+        'megalovania',
+        # folk metal
+        'inis-mona',
+        # indie / acoustic
+        'stolen-dance',
+    ],
+}

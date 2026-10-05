@@ -69,7 +69,23 @@
   <!-- ── Playlist Selector ────────────────────────────────────────────────── -->
   <div class="px-4 sm:px-8 pt-4 sm:pt-5 pb-2 flex-shrink-0">
     <div class="flex items-center justify-between mb-3">
-      <div class="text-[9px] text-neutral-600 tracking-[0.2em] uppercase">Playlist</div>
+      <div class="flex items-center gap-3">
+        <div class="text-[9px] text-neutral-600 tracking-[0.2em] uppercase">Playlist</div>
+        <!-- Category tabs -->
+        <div class="flex gap-1">
+          @for (category of categories(); track category) {
+          <button class="px-2.5 py-1 rounded text-[10px] font-bold border transition-all duration-150"
+            [class.border-fuchsia-500]="selectedCategory() === category"
+            [class.text-fuchsia-300]="selectedCategory() === category"
+            [class.bg-fuchsia-950]="selectedCategory() === category"
+            [class.border-neutral-700]="selectedCategory() !== category"
+            [class.text-neutral-400]="selectedCategory() !== category"
+            (click)="selectedCategory.set(category)">
+            {{ category }} <span class="text-neutral-500 font-normal">{{ categoryCount(category) }}</span>
+          </button>
+          }
+        </div>
+      </div>
       <!-- New Song button -->
       <button id="new-song-btn"
         class="flex items-center gap-1.5 px-3 py-1 rounded text-[10px] font-bold border border-dashed border-fuchsia-700 text-fuchsia-500 hover:border-fuchsia-400 hover:text-fuchsia-300 transition-all duration-150"
@@ -94,6 +110,7 @@
       </div>
       <div class="flex gap-3 overflow-x-auto pb-3 neon-scrollbar scroll-smooth px-1">
         @for (preset of playlists(); track preset.name; let i = $index) {
+        @if (categoryOf(i) === selectedCategory()) {
         <div class="relative flex-shrink-0 group">
           <button class="w-44 px-4 py-3 rounded-xl border text-left transition-all duration-200 hover:scale-[1.02]"
             [class.border-fuchsia-500]="selectedPresetIndex() === i"
@@ -130,6 +147,7 @@
             title="Delete song" (click)="deleteSong(i, $event)">✕</button>
           }
         </div>
+        }
         }
       </div>
     </div>

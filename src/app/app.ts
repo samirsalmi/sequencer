@@ -56,6 +56,8 @@ async function extractFromMxl(buf: ArrayBuffer): Promise<string> {
   throw new Error('Could not find a MusicXML file inside the MXL archive.');
 }
 
+const USER_CATEGORY = 'My Songs';
+
 @Component({
   selector: 'app-root',
   imports: [FormsModule],
@@ -72,6 +74,19 @@ export class App implements OnInit {
   // ── Playlists (static + user songs) ─────────────────────────────────────────
   readonly userSongs = signal<SequencePreset[]>(loadUserSongs());
   readonly playlists = computed(() => [...PLAYLIST_PRESETS, ...this.userSongs()]);
+
+  // ── Playlist categories: the playlist shows one category at a time ─────────
+  readonly categories = computed(() => {
+    const names = [...new Set(PLAYLIST_PRESETS.map(p => p.category ?? 'Draft'))];
+    return this.userSongs().length ? [...names, USER_CATEGORY] : names;
+  });
+  readonly selectedCategory = signal('Main');
+  categoryOf(index: number): string {
+    return index >= PLAYLIST_PRESETS.length ? USER_CATEGORY : (PLAYLIST_PRESETS[index].category ?? 'Draft');
+  }
+  categoryCount(category: string): number {
+    return this.playlists().filter((_, i) => this.categoryOf(i) === category).length;
+  }
 
   readonly selectedPresetIndex = signal(0);
   readonly activeTrackIndex = signal(0);
@@ -240,6 +255,7 @@ export class App implements OnInit {
       saveUserSongs(updated);
       const newIndex = PLAYLIST_PRESETS.length + updated.length - 1;
       this.selectedPresetIndex.set(newIndex);
+      this.selectedCategory.set(USER_CATEGORY);
       this.activeTrackIndex.set(0);
       this.audio.loadPreset(song);
     }
@@ -254,6 +270,7 @@ export class App implements OnInit {
     const updated   = this.userSongs().filter((_, i) => i !== userIndex);
     this.userSongs.set(updated);
     saveUserSongs(updated);
+    if (!updated.length && this.selectedCategory() === USER_CATEGORY) this.selectedCategory.set('Main');
 
     // If we deleted the active/a-later song, reset to 0
     if (this.selectedPresetIndex() === index || this.selectedPresetIndex() >= this.playlists().length) {
@@ -352,6 +369,7 @@ export class App implements OnInit {
 
     const newIndex = PLAYLIST_PRESETS.length + updated.length - 1;
     this.selectedPresetIndex.set(newIndex);
+    this.selectedCategory.set(USER_CATEGORY);
     this.activeTrackIndex.set(0);
     this.audio.loadPreset(adjusted);
     this.showImportModal.set(false);

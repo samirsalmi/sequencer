@@ -12,6 +12,13 @@ describe('built-in songs', () => {
     expect(new Set(SONG_CATALOG.map(s => s.name)).size).toBe(SONG_CATALOG.length);
   });
 
+  it('every song is in a playlist category, with the Main songs first', () => {
+    for (const meta of SONG_CATALOG) expect(['Main', 'Draft'], meta.name).toContain(meta.category);
+    expect(SONG_CATALOG.filter(s => s.category === 'Main').map(s => s.name))
+      .toEqual(['Für Elise (Easy Piano)', 'Canon in D', 'Canon in D 2.0', 'River Flows in You']);
+    expect(PLAYLIST_PRESETS[0].category).toBe('Main'); // the app opens on the first song, under Main
+  });
+
   it('every song loads and is valid', async () => {
     for (const meta of SONG_CATALOG) {
       const song = await meta.load();

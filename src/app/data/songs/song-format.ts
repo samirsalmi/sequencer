@@ -27,6 +27,8 @@ export interface SongDef extends Omit<SequencePreset, 'tracks' | 'stepCount' | '
 /** Playlist entry for a built-in song: everything the song list shows, plus a loader for the notes. */
 export interface SongMeta extends Omit<SongDef, 'tracks' | 'source' | 'swingPercentage' | 'humanize'> {
   trackCount: number;
+  /** Playlist category the song is listed under (e.g. 'Main', 'Draft'). */
+  category: string;
   load: () => Promise<SongDef>;
 }
 

@@ -16,13 +16,13 @@ export const RIVER_FLOWS_IN_YOU: SongDef = {
   humanize: 0.3,
   tracks: [
     {
-      trackName: "🎹 Upright Piano",
+      trackName: "🎹 Piano",
       synthType: "triangle",
-      instrumentPreset: "uprightPiano",
+      instrumentPreset: "piano",
       playbackMode: "sample",
-      sampleSet: "upright-piano",
+      sampleSet: "acoustic-piano",
       volume: 0.25,
-      reverbSend: 0.5,
+      reverbSend: 0.4,
       rowNotes: ["E6", "D6", "C#6", "B5", "A5", "G#5", "F#5", "E5", "D5", "C#5", "B4", "A4", "G#4", "F#4", "E4", "D4", "C#4", "B3", "A3", "G#3", "F#3", "E3", "D3", "C#3", "B2", "A2", "F#2", "E2"],
       notes: [
         [0,4,4,0.64], [0,20,16,0.65], [2,5,4,0.65], [2,16,14,0.75], [4,4,4,0.7], [4,13,12,0.77], [6,5,10,0.63], [8,4,4,0.67], [8,22,8,0.61], [10,7,6,0.63],

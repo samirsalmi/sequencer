@@ -9,6 +9,8 @@ import type { StepResolution } from '../utils/time-signature';
 export interface SequencePreset {
   name: string;
   artist: string;
+  /** Playlist category of a built-in song ('Main', 'Draft'); the user's own songs are listed under 'My Songs'. */
+  category?: string;
   bpm: number;
   scale: string;
   rootNote: string;
