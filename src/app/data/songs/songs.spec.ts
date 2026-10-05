@@ -39,4 +39,13 @@ describe('built-in songs', () => {
       expect(grid.tracks.every(t => t.grid.every(r => r.length === song.stepCount)), where).toBe(true);
     }
   });
+
+  it('songs are instruments only (no vocal parts)', async () => {
+    for (const meta of SONG_CATALOG) {
+      const song = await meta.load();
+      for (const t of song.tracks) {
+        expect(t.trackName, song.name).not.toMatch(/vocal|voice|lyric|singer|🎤/i);
+      }
+    }
+  });
 });

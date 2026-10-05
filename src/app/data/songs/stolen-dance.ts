@@ -1,4 +1,5 @@
 // Hand-written preset, stored as a note list (converted losslessly from the original grid format).
+// Re-voiced later: the guitar riff moved from piano to acoustic guitar, the left hand to electric bass.
 import type { SongDef } from './song-format';
 
 export const STOLEN_DANCE: SongDef = {
@@ -14,12 +15,12 @@ export const STOLEN_DANCE: SongDef = {
   swingPercentage: 0,
   tracks: [
     {
-      trackName: "🎹 Right Hand — Chords",
-      synthType: "triangle",
-      instrumentPreset: "piano",
+      trackName: "🎸 Guitar Riff (Acoustic)",
+      synthType: "sawtooth",
+      instrumentPreset: "acousticGuitar",
       playbackMode: "sample",
-      sampleSet: "acoustic-piano",
-      volume: 0.5,
+      sampleSet: "acoustic-guitar",
+      volume: 0.6,
       pan: -0.1,
       reverbSend: 0.25,
       rowNotes: ["E5", "D5", "C5", "B4", "A4", "G#4", "G4", "F4", "E4"],
@@ -41,13 +42,13 @@ export const STOLEN_DANCE: SongDef = {
       ],
     },
     {
-      trackName: "🎹 Left Hand — Bass",
+      trackName: "🎸 Bass",
       synthType: "triangle",
-      instrumentPreset: "piano",
+      instrumentPreset: "bass",
       playbackMode: "sample",
-      sampleSet: "acoustic-piano",
-      volume: 0.45,
-      pan: -0.2,
+      sampleSet: "electric-bass",
+      volume: 0.6,
+      pan: 0,
       reverbSend: 0.25,
       rowNotes: ["A2", "G2", "F2", "E2", "C2"],
       notes: [

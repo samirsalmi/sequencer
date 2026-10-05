@@ -131,7 +131,7 @@ export const HAIL_TO_THE_KING: SongDef = {
       synthType: "sine",
       instrumentPreset: "drums",
       playbackMode: "sample",
-      volume: 1.0,
+      volume: 1.3,
       rowNotes: ["Crash", "Ride", "Open Hi-Hat", "Snare", "Tom Mid", "Tom Low", "Kick"],
       notes: [
         [68,1,1,0.81], [76,1,1,0.81], [84,1,1,0.81], [92,1,1,0.81], [100,1,1,0.81], [108,1,1,0.81], [116,1,1,0.81], [124,1,1,0.81], [132,1,1,0.81], [132,6,1,0.81],

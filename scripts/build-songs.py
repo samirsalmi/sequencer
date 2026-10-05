@@ -6,6 +6,7 @@ app track (instrument, sample set, volume, pan...). The converter:
   * splits distorted guitar parts into power chords (one grid note = the whole chord, using the real-amp power-chord
     samples) and single notes, each with a palm-muted variant;
   * maps General MIDI drums onto the app's kit;
+  * keeps songs instruments only: a source track that looks like a vocal part is refused;
   * picks the coarsest grid that holds the rhythm (16ths, or 12 steps per beat when there are triplets);
   * writes a compact note list (src/app/data/songs/song-format.ts expands it to the editor grid on load).
 
@@ -228,8 +229,9 @@ def read_midi(path, track_index, bars, channel=None, transpose=0, drums=False):
 
 
 # ── Splitting distorted guitars into power chords / single notes ─────────────
-def split_guitar(events, power=True):
-    """Groups simultaneous notes; root+5th(+octave) shapes become one power-chord note on the root."""
+def split_guitar(events, power=True, loose=False):
+    """Groups simultaneous notes; root+5th(+octave) shapes become one power-chord note on the root.
+    `loose`: any chord holding root + 5th is played as that power chord (full barre chords through a high-gain amp)."""
     groups = defaultdict(list)
     for e in events:
         groups[e.start].append(e)
@@ -238,7 +240,8 @@ def split_guitar(events, power=True):
         pitches = sorted({e.pitch for e in grp})
         root = pitches[0]
         intervals = {p - root for p in pitches[1:]}
-        is_power = power and len(pitches) >= 2 and 7 in intervals and intervals <= {7, 12, 19, 24} and POWER_MIN - 2 <= root <= POWER_MAX + 2
+        shape_ok = (7 in intervals and intervals <= {7, 12, 19, 24}) or (loose and bool(intervals & {7, 19}))
+        is_power = power and len(pitches) >= 2 and shape_ok and POWER_MIN - 2 <= root <= POWER_MAX + 2
         pm = any(e.pm for e in grp)
         if is_power:
             out['power_pm' if pm else 'power'].append(Ev(start, max(e.dur for e in grp), root, max(e.vel for e in grp), pm=pm))
@@ -368,6 +371,28 @@ STRING_DEFAULTS = {
 }
 SPLIT_SUFFIX = {'power': ' — Power Chords', 'power_pm': ' — Palm Mute', 'single': '', 'single_pm': ' — Palm-Muted Notes'}
 
+# Songs are instruments only: a source track that looks like a vocal part (by name, or a GM voice/choir program) is refused.
+VOCAL_NAME = re.compile(r'vocal|voice|voix|lyric|melody|singer|choir|chant', re.I)
+VOCAL_PROGRAMS = {52, 53, 54, 85}  # Choir Aahs, Voice Oohs, Synth Voice, Lead 6 (voice)
+
+
+def source_track_info(path, kind, track_index, channel=None):
+    """(name, GM program) of a source track, for the vocal check."""
+    if kind == 'gp':
+        t = guitarpro.parse(path).tracks[track_index]
+        return t.name, None if t.isPercussionTrack else t.channel.instrument
+    tr = mido.MidiFile(path).tracks[track_index]
+    name = next((m.name for m in tr if m.type == 'track_name'), '')
+    prog = next((m.program for m in tr if m.type == 'program_change' and (channel is None or m.channel == channel)), None)
+    return name, prog
+
+
+def check_instrumental(recipe_id, path, kind, part):
+    name, prog = source_track_info(path, kind, part['track'], part.get('channel'))
+    if VOCAL_NAME.search(name) or prog in VOCAL_PROGRAMS:
+        raise SystemExit(f"{recipe_id}: source track {part['track']} ({name!r}, program {prog}) looks like a vocal part — "
+                         "songs are instruments only")
+
 
 def build(recipe_id, r):
     src = os.path.join(SOURCES, r['file'])
@@ -376,6 +401,7 @@ def build(recipe_id, r):
     parts = []  # (config, events, is_drum)
     total_q = None
     for part in r['parts']:
+        check_instrumental(recipe_id, src, kind, part)
         if kind == 'gp':
             evs, total_q = read_gp(src, part['track'], bars, part.get('transpose', 0))
         else:
@@ -386,6 +412,12 @@ def build(recipe_id, r):
                 e.pm = True
         if part.get('from_q') is not None:  # this part only plays from that point of the segment (in quarter notes)
             evs = [e for e in evs if e.start >= part['from_q']]
+        if part.get('roots_only'):  # derive a bass line from a chord part: keep the lowest note of each onset
+            lowest = {}
+            for e in evs:
+                if e.start not in lowest or e.pitch < lowest[e.start].pitch:
+                    lowest[e.start] = e
+            evs = sorted(lowest.values(), key=lambda e: e.start)
         if part.get('drop_below') is not None:
             evs = [e for e in evs if e.drum or e.pitch >= part['drop_below']]
         if part.get('keep_above') is not None:
@@ -403,7 +435,7 @@ def build(recipe_id, r):
                     parts.append((cfg, sub_evs, False, part))
             continue
         if role == 'guitar':
-            split = split_guitar(evs, power=part.get('power', True))
+            split = split_guitar(evs, power=part.get('power', True), loose=part.get('loose_power', False))
             for sub, sub_evs in split.items():
                 if not sub_evs:
                     continue

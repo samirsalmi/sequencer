@@ -4,7 +4,7 @@ import type { SongDef } from './song-format';
 export const NIGHTMARE: SongDef = {
   name: "Nightmare",
   artist: "Avenged Sevenfold",
-  source: "Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 17–49: music-box intro, 6/8 riff, \"Nightmare!\"",
+  source: "Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 17–49: music-box intro into the 6/8 main riff",
   bpm: 130,
   stepsPerBeat: 24,
   stepResolution: "16th",

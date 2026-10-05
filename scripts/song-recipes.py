@@ -1,10 +1,16 @@
 """Song recipes for scripts/build-songs.py.
 
+Songs are instruments only: never map a vocal track (not even onto an instrument). Pick segments where the band carries
+the song (intros, riffs, instrumental breaks, solos). build-songs.py refuses source tracks that look like vocals.
+
 Each recipe: source file (relative to $SONG_SOURCES), bar ranges (1-based, inclusive, concatenated), and parts.
 A part maps one source track to app tracks:
   role 'guitar'  → split into power chords / palm-muted power chords / single notes / palm-muted notes
   role 'drums'   → General MIDI drums onto the app kit
   role 'bass' | anything else → one track; `config` overrides instrument, sample set, volume, pan, sends.
+  Other part options: transpose, channel (MIDI), pm (force palm-muted samples), roots_only (lowest note of each chord,
+  e.g. to derive a bass line), loose_power (play any chord holding root + 5th as that power chord), from_q (start partway in, in quarter notes), keep_above / keep_below / drop_below (pitch
+  filters), max_len (cap note length in steps).
 Sources are listed in docs/song-sources.md.
 """
 
@@ -13,6 +19,7 @@ NYLON_GTR = dict(synthType='triangle', instrumentPreset='classicalGuitar', playb
 STEEL_GTR = dict(synthType='sawtooth', instrumentPreset='acousticGuitar', playbackMode='sample', sampleSet='acoustic-guitar')
 PIANO = dict(synthType='triangle', instrumentPreset='piano', playbackMode='sample', sampleSet='acoustic-piano')
 CELLO = dict(synthType='sawtooth', instrumentPreset='cello', playbackMode='sample', sampleSet='cello')
+TRUMPET = dict(synthType='sawtooth', instrumentPreset='trumpet', playbackMode='sample', sampleSet='trumpet')
 VIOLIN = dict(synthType='sawtooth', instrumentPreset='violin', playbackMode='sample', sampleSet='violin')
 
 RECIPES = {
@@ -30,14 +37,13 @@ RECIPES = {
     ),
     'hero': dict(
         name='Hero', artist='Skillet',
-        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 1–13 (intro) + 30–37 (chorus, vocal line on lead guitar)',
-        file='Skillet - Hero.gp5', bars=[(1, 13), (30, 37)], rootNote='D', scale='naturalMinor',
+        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 1–13 (intro) + 22–37 (pre-chorus and chorus, band only)',
+        file='Skillet - Hero.gp5', bars=[(1, 13), (22, 37)], rootNote='D', scale='naturalMinor',
         parts=[
             dict(track=3, name='🎸 Ben — Riff', role='guitar', config={'pan': 0.35}),
             dict(track=4, name='🤘 Korey', role='guitar', config={'pan': -0.4}),
-            dict(track=0, name='🎤 Vocal Line (Lead Guitar)', role='lead', transpose=12,
-                 config={'synthType': 'sawtooth', 'instrumentPreset': 'distGuitar', 'playbackMode': 'sample', 'sampleSet': 'dist-guitar',
-                         'volume': 0.5, 'pan': 0.1, 'delaySend': 0.15, 'reverbSend': 0.2}),
+            dict(track=7, name='🎹 Korey — Keys', role='keys', config={**PIANO, 'volume': 0.45, 'pan': 0.15, 'reverbSend': 0.25}),
+            dict(track=8, name='🎻 Korey — Strings', role='strings'),
             dict(track=5, name='🎸 John — Bass', role='bass'),
             dict(track=6, name='🥁 Jen — Drums', role='drums'),
         ],
@@ -55,12 +61,11 @@ RECIPES = {
     ),
     'monster': dict(
         name='Monster', artist='Skillet',
-        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 1–8 (intro riff) + 26–33 (chorus, vocal line on lead guitar)',
-        file='Skillet - Monster.gp5', bars=[(1, 8), (26, 33)], rootNote='G', scale='naturalMinor',
+        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 1–8 (intro riff) + 26–41 (chorus, post-chorus and interlude, band only)',
+        file='Skillet - Monster.gp5', bars=[(1, 8), (26, 41)], rootNote='G', scale='naturalMinor',
         parts=[
             dict(track=2, name='🤘 Ben', role='guitar', config={'pan': -0.4}),
             dict(track=3, name='🤘 Korey', role='guitar', config={'pan': 0.4}),
-            dict(track=0, name='🎤 Vocal Line (Lead Guitar)', role='lead', transpose=12, config={'synthType': 'sawtooth', 'instrumentPreset': 'distGuitar', 'playbackMode': 'sample', 'sampleSet': 'dist-guitar', 'volume': 0.5, 'pan': 0.1, 'delaySend': 0.15, 'reverbSend': 0.2}),
             dict(track=7, name='🎻 Strings', role='strings'),
             dict(track=4, name='🎸 John — Bass', role='bass'),
             dict(track=6, name='🥁 Jen — Drums', role='drums'),
@@ -98,7 +103,7 @@ RECIPES = {
     ),
     'nightmare': dict(
         name='Nightmare', artist='Avenged Sevenfold',
-        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 17–49: music-box intro, 6/8 riff, "Nightmare!"',
+        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 17–49: music-box intro into the 6/8 main riff',
         file='Avenged Sevenfold - NIghtmare.gp5', bars=[(17, 49)], timeSignature='6/8', rootNote='D', scale='naturalMinor',
         parts=[
             dict(track=2, name='🎸 Synyster — Lead', role='guitar', config={'pan': 0.35}),
@@ -134,21 +139,22 @@ RECIPES = {
     ),
     'billie-jean': dict(
         name='Billie Jean', artist='Michael Jackson',
-        source='MIDI arrangement (Lakh MIDI Dataset clean_midi, "Billie Jean.2"), bars 3–28: drum intro, bassline, synth stabs, first verse melody',
-        file='lakh - Jackson Michael - Billie Jean.2.mid', bars=[(3, 28)], rootNote='F#', scale='dorian',
+        source='MIDI arrangement (Lakh MIDI Dataset clean_midi, "Billie Jean.2"), bars 3–14 (drum intro, bassline, synth stabs) + 37–52 (pre-chorus and chorus backing), band only',
+        file='lakh - Jackson Michael - Billie Jean.2.mid', bars=[(3, 14), (37, 52)], rootNote='F#', scale='dorian',
         parts=[
             dict(track=10, name='🥁 Drums', role='drums'),
             dict(track=2, name='🎸 Bassline', role='bass', config={'volume': 0.8}),
             dict(track=3, name='🎛️ Synth Stabs', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'polySynth', 'playbackMode': 'synth', 'volume': 0.35, 'pan': -0.2, 'reverbSend': 0.2}),
-            dict(track=4, name='🎤 Melody (Synth Lead)', role='lead', config={'synthType': 'square', 'instrumentPreset': 'synthLead', 'playbackMode': 'synth', 'volume': 0.4, 'pan': 0.1, 'delaySend': 0.15, 'reverbSend': 0.2}),
-            dict(track=7, name='🎸 Muted Guitar', role='clean', config={**CLEAN_GTR, 'volume': 0.35, 'pan': 0.4}),
+            dict(track=1, name='🎹 Electric Piano', role='keys', config={'synthType': 'sine', 'instrumentPreset': 'ePiano', 'playbackMode': 'synth', 'volume': 0.4, 'pan': 0.2, 'reverbSend': 0.25}),
+            dict(track=7, name='🎸 Muted Guitar', role='clean', max_len=1, config={**CLEAN_GTR, 'volume': 0.35, 'pan': 0.4}),
             dict(track=8, name='🎻 Strings', role='strings'),
+            dict(track=11, name='🎺 Trumpet', role='brass', config={**TRUMPET, 'volume': 0.4, 'pan': -0.15, 'reverbSend': 0.25}),
         ],
     ),
     'beat-it': dict(
         name='Beat It', artist='Michael Jackson',
-        source='MIDI arrangement (Lakh MIDI Dataset clean_midi, "Beat It"), bars 13–31: drum intro, the riff, first verse melody',
-        file='lakh - Michael Jackson - Beat It.mid', bars=[(13, 31)], rootNote='E', scale='dorian',
+        source='MIDI arrangement (Lakh MIDI Dataset clean_midi, "Beat It"), bars 13–27 (drum intro, the riff, verse backing) + 40–51 (chorus backing), band only',
+        file='lakh - Michael Jackson - Beat It.mid', bars=[(13, 27), (40, 51)], rootNote='E', scale='dorian',
         parts=[
             dict(track=2, name='🥁 Drums', role='drums'),
             dict(track=5, name='🤘 Guitar Riff', role='guitar', config={'pan': -0.35}),
@@ -156,35 +162,32 @@ RECIPES = {
             dict(track=8, name='🎸 Muted Guitar', role='clean', config={**CLEAN_GTR, 'volume': 0.35, 'pan': 0.2}),
             dict(track=3, name='🎸 Bass', role='bass', config={'volume': 0.75}),
             dict(track=4, name='🎛️ Synth', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'polySynth', 'playbackMode': 'synth', 'volume': 0.3, 'pan': -0.15, 'reverbSend': 0.2}),
-            dict(track=1, name='🎤 Melody (Synth Lead)', role='lead', config={'synthType': 'square', 'instrumentPreset': 'synthLead', 'playbackMode': 'synth', 'volume': 0.4, 'pan': 0.1, 'delaySend': 0.15, 'reverbSend': 0.2}),
         ],
     ),
     'smooth-criminal': dict(
         name='Smooth Criminal', artist='Michael Jackson',
-        source='MIDI arrangement (Lakh MIDI Dataset clean_midi, "Smooth Criminal"), bars 2–25: synth-bass groove, brass stabs, verse melody',
-        file='lakh - Michael Jackson - Smooth Criminal.mid', bars=[(2, 25)], rootNote='A', scale='naturalMinor',
+        source='MIDI arrangement (Lakh MIDI Dataset clean_midi, "Smooth Criminal"), bars 2–13 (synth-bass groove, brass stabs) + 70–85 (the instrumental break), band only',
+        file='lakh - Michael Jackson - Smooth Criminal.mid', bars=[(2, 13), (70, 85)], rootNote='A', scale='naturalMinor',
         parts=[
             dict(track=2, name='🥁 Drums', role='drums'),
             dict(track=3, name='🎛️ Synth Bass', role='bass', config={'synthType': 'square', 'instrumentPreset': 'synthBass', 'playbackMode': 'synth', 'volume': 0.55}),
             dict(track=5, name='🎸 Muted Guitar', role='clean', config={**CLEAN_GTR, 'volume': 0.4, 'pan': 0.35}),
-            dict(track=4, name='🎺 Synth Brass', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'synthBrass', 'playbackMode': 'synth', 'volume': 0.35, 'pan': -0.25, 'reverbSend': 0.2}),
-            dict(track=8, name='🎛️ Poly Synth', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'polySynth', 'playbackMode': 'synth', 'volume': 0.28, 'pan': 0.25, 'reverbSend': 0.2}),
-            dict(track=6, name='🎻 Strings', role='strings'),
-            dict(track=1, name='🎤 Melody (Synth Lead)', role='lead', config={'synthType': 'square', 'instrumentPreset': 'synthLead', 'playbackMode': 'synth', 'volume': 0.4, 'pan': 0.05, 'delaySend': 0.15, 'reverbSend': 0.2}),
+            dict(track=4, name='🎺 Synth Brass', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'synthBrass', 'playbackMode': 'synth', 'volume': 0.35, 'pan': 0.25, 'reverbSend': 0.2}),
+            dict(track=11, name='🎺 Brass Section', role='brass', config={**TRUMPET, 'volume': 0.4, 'pan': -0.15, 'reverbSend': 0.2}),
+            dict(track=10, name='🌫️ Pad', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'synthPad', 'playbackMode': 'synth', 'volume': 0.22, 'reverbSend': 0.35}),
         ],
     ),
     'thriller': dict(
         name='Thriller', artist='Michael Jackson',
-        source='MIDI arrangement (Lakh MIDI Dataset clean_midi, "Thriller"), bars 3–28: intro hits, the bassline groove, first verse melody',
-        file='lakh - Michael Jackson - Thriller.mid', bars=[(3, 28)], rootNote='C#', scale='dorian',
+        source='MIDI arrangement (Lakh MIDI Dataset clean_midi, "Thriller"), bars 3–20 (intro, the hits, bassline groove) + 37–44 (chorus backing), band only',
+        file='lakh - Michael Jackson - Thriller.mid', bars=[(3, 20), (37, 44)], rootNote='C#', scale='dorian',
         parts=[
             dict(track=0, channel=9, name='🥁 Drums', role='drums'),
             dict(track=0, channel=1, name='🎛️ Synth Bass', role='bass', config={'synthType': 'square', 'instrumentPreset': 'synthBass', 'playbackMode': 'synth', 'volume': 0.6}),
             dict(track=0, channel=6, name='🎸 Muted Guitar', role='clean', config={**CLEAN_GTR, 'volume': 0.35, 'pan': 0.35}),
             dict(track=0, channel=0, name='🎹 Electric Piano', role='keys', config={'synthType': 'sine', 'instrumentPreset': 'ePiano', 'playbackMode': 'synth', 'volume': 0.4, 'pan': -0.25, 'reverbSend': 0.25}),
-            dict(track=0, channel=5, name='🎺 Synth Brass', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'synthBrass', 'playbackMode': 'synth', 'volume': 0.35, 'pan': 0.2, 'reverbSend': 0.25}),
+            dict(track=0, channel=5, name='🎺 Synth Brass', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'synthBrass', 'playbackMode': 'synth', 'volume': 0.4, 'pan': 0.2, 'reverbSend': 0.25}),
             dict(track=0, channel=4, name='🎻 Strings', role='strings'),
-            dict(track=0, channel=3, name='🎤 Melody (Synth Lead)', role='lead', config={'synthType': 'square', 'instrumentPreset': 'synthLead', 'playbackMode': 'synth', 'volume': 0.4, 'pan': 0.05, 'delaySend': 0.15, 'reverbSend': 0.2}),
         ],
     ),
     'in-the-end': dict(
@@ -201,17 +204,129 @@ RECIPES = {
     ),
     'numb': dict(
         name='Numb', artist='Linkin Park',
-        source='MIDI arrangement (github.com/qtangdongzkie-lab/Midi-files), bars 3–10 (intro) + 19–24 (chorus, vocal line on synth lead)',
-        file='qt - Numb.mid', bars=[(3, 10), (19, 24)], rootNote='F#', scale='naturalMinor',
+        source='MIDI arrangement (github.com/qtangdongzkie-lab/Midi-files), bars 3–10 (intro and piano riff) + 19–32 (chorus into the piano riff), band only',
+        file='qt - Numb.mid', bars=[(3, 10), (19, 32)], rootNote='F#', scale='naturalMinor',
         parts=[
             dict(track=2, name='🎛️ Intro Synth', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'polySynth', 'playbackMode': 'synth', 'volume': 0.3, 'pan': 0.2, 'reverbSend': 0.3}),
             dict(track=3, name='🎹 Piano', role='keys', config={**PIANO, 'volume': 0.5, 'reverbSend': 0.25}),
             dict(track=5, name='🌫️ Pad', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'synthPad', 'playbackMode': 'synth', 'volume': 0.25, 'reverbSend': 0.35}),
-            dict(track=0, name='🤘 Guitar', role='guitar', config={'pan': -0.3}),
-            dict(track=6, name='🎤 Vocal Line (Synth Lead)', role='lead', config={'synthType': 'square', 'instrumentPreset': 'synthLead', 'playbackMode': 'synth', 'volume': 0.4, 'pan': 0.1, 'delaySend': 0.15, 'reverbSend': 0.2}),
+            dict(track=4, name='🎻 Low Strings', role='cello'),
+            dict(track=0, name='🤘 Guitar', role='guitar', config={'pan': -0.15}),
             dict(track=1, name='🎸 Bass', role='bass'),
             dict(track=10, name='🥁 Drums', role='drums'),
             dict(track=8, name='👏 Claps', role='drums', config={'volume': 0.8}),
+        ],
+    ),
+    'sweet-child-o-mine': dict(
+        name="Sweet Child O' Mine", artist="Guns N' Roses",
+        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 1–24: the intro riff and the band build-up',
+        file="Guns N' Roses - Sweet Child O' Mine.gp5", bars=[(1, 24)], rootNote='C#', scale='major',
+        parts=[
+            dict(track=2, name='🎸 Slash — Intro Riff', role='guitar', config={'pan': 0.25, 'delaySend': 0.12, 'reverbSend': 0.2}),
+            dict(track=3, name='🤘 Izzy — Rhythm', role='guitar', config={'pan': -0.4}),
+            dict(track=4, name='🎸 Slash — Clean', role='clean', config={**CLEAN_GTR, 'volume': 0.45, 'pan': 0.45, 'reverbSend': 0.25}),
+            dict(track=5, name='🎸 Duff — Bass', role='bass'),
+            dict(track=6, name='🥁 Steven — Drums', role='drums'),
+        ],
+    ),
+    'thunderstruck': dict(
+        name='Thunderstruck', artist='AC/DC',
+        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 14–37: the hammer-on riff as drums, bass and rhythm guitar join',
+        file='ACDC - Thunderstruck.gp5', bars=[(14, 37)], rootNote='B', scale='major',
+        parts=[
+            dict(track=3, name='🎸 Angus — Riff', role='guitar', config={'pan': 0.25, 'reverbSend': 0.15}),
+            dict(track=2, name='🤘 Malcolm — Rhythm', role='guitar', config={'pan': -0.35}),
+            dict(track=5, name='🎸 Cliff — Bass', role='bass'),
+            dict(track=6, name='🥁 Chris — Drums', role='drums'),
+        ],
+    ),
+    'smells-like-teen-spirit': dict(
+        name='Smells Like Teen Spirit', artist='Nirvana',
+        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 1–7 (intro) + 76–95 (bridge and the guitar solo)',
+        file='Nirvana - Smells Like Teen Spirit.gp5', bars=[(1, 7), (76, 95)], rootNote='F', scale='naturalMinor',
+        parts=[
+            dict(track=1, name='🎸 Kurt — Clean Intro', role='clean', config={**CLEAN_GTR, 'volume': 0.55, 'pan': -0.2, 'reverbSend': 0.2}),
+            dict(track=2, name='🤘 Kurt — Main Riff', role='guitar', config={'pan': -0.3}),
+            dict(track=4, name='🤘 Kurt — Overdubs', role='guitar', config={'pan': 0.35}),
+            dict(track=3, name='🎸 Kurt — Solo', role='guitar', config={'pan': 0.15, 'delaySend': 0.15, 'reverbSend': 0.2}),
+            dict(track=5, name='🎸 Krist — Bass', role='bass'),
+            dict(track=6, name='🥁 Dave — Drums', role='drums'),
+        ],
+    ),
+    'chop-suey': dict(
+        name='Chop Suey!', artist='System of a Down',
+        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 1–24: the acoustic intro riff into the heavy riff',
+        file='System Of A Down - Chop Suey!.gp5', bars=[(1, 24)], rootNote='G', scale='harmonicMinor',
+        parts=[
+            dict(track=3, name='🎸 Daron — Acoustic Riff', role='clean', config={**STEEL_GTR, 'volume': 0.55, 'pan': -0.1, 'reverbSend': 0.2}),
+            dict(track=0, name='🤘 Daron — Guitar L', role='guitar', config={'pan': -0.45}),
+            dict(track=1, name='🤘 Daron — Guitar R', role='guitar', config={'pan': 0.45}),
+            dict(track=2, name='🎸 Daron — Clean', role='clean', config={**CLEAN_GTR, 'volume': 0.4, 'pan': 0.25, 'reverbSend': 0.2}),
+            dict(track=4, name='🎸 Shavo — Bass', role='bass'),
+            dict(track=10, name='🥁 John — Drums', role='drums'),
+        ],
+    ),
+    'down-with-the-sickness': dict(
+        name='Down with the Sickness', artist='Disturbed',
+        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 3–6 (drum intro) + 11–26 (the riff)',
+        file='Disturbed - Down With The Sickness.gp5', bars=[(3, 6), (11, 26)], rootNote='C#', scale='naturalMinor',
+        parts=[
+            dict(track=0, name='🤘 Dan — Guitar', role='guitar', config={'pan': -0.1}),
+            dict(track=3, name='🎸 Dan — Extras', role='clean', config={**CLEAN_GTR, 'volume': 0.4, 'pan': 0.4, 'reverbSend': 0.25}),
+            dict(track=1, name='🎸 Fuzz — Bass', role='bass'),
+            dict(track=2, name='🥁 Mike — Drums', role='drums'),
+        ],
+    ),
+    'last-resort': dict(
+        name='Last Resort', artist='Papa Roach',
+        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 3–22: intro, the main riff, verse and chorus (band only)',
+        file='Papa Roach - Last Resort.gp5', bars=[(3, 22)], rootNote='F#', scale='naturalMinor',
+        parts=[
+            dict(track=1, name='🤘 Jerry — Guitar', role='guitar', config={'pan': -0.3}),
+            dict(track=2, name='🤘 Jerry — Fills', role='guitar', config={'pan': 0.35}),
+            dict(track=3, name='🎸 Tobin — Bass', role='bass'),
+            dict(track=4, name='🥁 Dave — Drums', role='drums'),
+        ],
+    ),
+    'eye-of-the-tiger': dict(
+        name='Eye of the Tiger', artist='Survivor',
+        source='MIDI arrangement (Lakh MIDI Dataset clean_midi, "Eye Of The Tiger"), bars 2–23: the muted-guitar intro and the big hits (band only)',
+        file='lakh - Survivor - Eye Of The Tiger.mid', bars=[(2, 23)], rootNote='C', scale='naturalMinor',
+        parts=[
+            dict(track=6, name='🤘 Muted Guitar', role='guitar', pm=True, config={'pan': -0.3}),
+            dict(track=7, name='🤘 Overdrive Guitar', role='guitar', config={'pan': 0.4}),
+            dict(track=8, name='🤘 Distortion Guitar', role='guitar', config={'pan': -0.4}),
+            dict(track=5, name='🎹 Piano', role='keys', config={**PIANO, 'volume': 0.5, 'pan': 0.15, 'reverbSend': 0.2}),
+            dict(track=4, name='🎸 Bass', role='bass'),
+            dict(track=10, name='🥁 Drums', role='drums'),
+        ],
+    ),
+    'the-final-countdown': dict(
+        name='The Final Countdown', artist='Europe',
+        source='MIDI arrangement (Lakh MIDI Dataset clean_midi, "The Final Countdown.1"), bars 8–35: the synth-brass intro and the full-band riff',
+        file='lakh - Europe - The Final Countdown.1.mid', bars=[(8, 35)], rootNote='F#', scale='naturalMinor',
+        parts=[
+            dict(track=2, name='🎺 Synth Brass — Riff', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'synthBrass', 'playbackMode': 'synth', 'volume': 0.45, 'pan': 0.05, 'reverbSend': 0.25}),
+            dict(track=3, name='🎺 Synth Brass 2', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'synthBrass', 'playbackMode': 'synth', 'volume': 0.3, 'pan': -0.2, 'reverbSend': 0.25}),
+            dict(track=4, name='🎹 Organ', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'synthPad', 'playbackMode': 'synth', 'volume': 0.25, 'pan': 0.2, 'reverbSend': 0.3}),
+            dict(track=5, name='🎻 Strings', role='strings'),
+            dict(track=6, name='🎛️ Poly Synth', role='keys', config={'synthType': 'sawtooth', 'instrumentPreset': 'polySynth', 'playbackMode': 'synth', 'volume': 0.3, 'pan': -0.1, 'reverbSend': 0.25}),
+            dict(track=8, name='🤘 Overdrive Guitar', role='guitar', config={'pan': 0.4}),
+            dict(track=11, name='🤘 Distortion Guitar', role='guitar', config={'pan': -0.4}),
+            dict(track=7, name='🎸 Bass', role='bass'),
+            dict(track=10, name='🥁 Drums', role='drums'),
+        ],
+    ),
+    'megalovania': dict(
+        name='Megalovania', artist='Toby Fox (Undertale), rock arrangement',
+        source='Guitar Pro transcription (github.com/AlexMi-Ha/GuitarTabs), bars 1–24: intro riff, rhythm entry, lead melody; the bass follows the rhythm-guitar roots (the arrangement has no bass)',
+        file='Toby Fox - Megalovania.gp5', bars=[(1, 24)], rootNote='D', scale='naturalMinor',
+        parts=[
+            dict(track=2, name='🎸 Intro Riff', role='guitar', config={'pan': 0.2}),
+            dict(track=1, name='🤘 Rhythm', role='guitar', loose_power=True, config={'pan': -0.35}),
+            dict(track=0, name='🎸 Lead', role='guitar', config={'pan': 0.3, 'delaySend': 0.15, 'reverbSend': 0.15}),
+            dict(track=1, name='🎸 Bass', role='bass', roots_only=True, transpose=-12),
+            dict(track=3, name='🥁 Drums', role='drums'),
         ],
     ),
 }
@@ -230,7 +345,11 @@ PLAYLIST_ORDER = [
     'billie-jean', 'beat-it', 'smooth-criminal', 'thriller',
     # Linkin Park
     'in-the-end', 'numb',
+    # more rock & metal
+    'sweet-child-o-mine', 'thunderstruck', 'smells-like-teen-spirit', 'chop-suey', 'down-with-the-sickness',
+    'last-resort', 'eye-of-the-tiger', 'the-final-countdown',
+    # video games
+    'megalovania',
     # indie / acoustic
-    'stolen-dance', 'rockadown',
+    'stolen-dance',
 ]
-
