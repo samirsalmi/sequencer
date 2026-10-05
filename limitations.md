@@ -37,7 +37,7 @@ What the built-in songs and the song converter can and can't do, and why. Source
   reproduced. Natural harmonics play as their harmonic pitch.
 - **Dead notes** (muted string scratches) and grace notes are skipped. Because of that, Down with the Sickness skips
   the bars where the guitar only scratches along with the drums.
-- **One tempo per song.** Tempo changes inside a segment are ignored; the tempo at the start of the segment is used.
+- **One tempo per song.** Tempo changes inside a segment are ignored; the tempo at the start of the segment is used. A MIDI recipe can set `bake_tempo` to write them into the note positions instead (River Flows in You's ritardandos).
 - **Time signature is display only.** The grid plays steps in a row, so mixed meters (a 3/4 bar inside 4/4) are
   avoided when choosing segments.
 - **Everything snaps to the grid.** The grid is 16th notes, or 12 or 24 steps per beat when the music has triplets.
