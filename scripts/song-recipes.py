@@ -21,6 +21,9 @@ PIANO = dict(synthType='triangle', instrumentPreset='piano', playbackMode='sampl
 CELLO = dict(synthType='sawtooth', instrumentPreset='cello', playbackMode='sample', sampleSet='cello')
 TRUMPET = dict(synthType='sawtooth', instrumentPreset='trumpet', playbackMode='sample', sampleSet='trumpet')
 VIOLIN = dict(synthType='sawtooth', instrumentPreset='violin', playbackMode='sample', sampleSet='violin')
+WHISTLE = dict(synthType='triangle', instrumentPreset='tinWhistle', playbackMode='sample', sampleSet='recorder')
+BAGPIPE = dict(synthType='sawtooth', instrumentPreset='bagpipe', playbackMode='sample', sampleSet='bagpipe')
+HURDY_GURDY = dict(synthType='sawtooth', instrumentPreset='hurdyGurdy', playbackMode='sample', sampleSet='hurdy-gurdy')
 
 RECIPES = {
     'enter-sandman': dict(
@@ -329,6 +332,24 @@ RECIPES = {
             dict(track=3, name='🥁 Drums', role='drums'),
         ],
     ),
+    'inis-mona': dict(
+        name='Inis Mona', artist='Eluveitie',
+        source='Guitar Pro transcription (gprotab.net), bars 1–30 with repeats played: intro, verse, pre-chorus and chorus. '
+               'The vocals are not in the transcription; the verse switches to 3/4 for bars 12–16',
+        file='Eluveitie - Inis Mona.gp5',
+        bars=[(1, 5), (2, 5), (6, 15), (12, 15), (16, 29), (26, 30)], rootNote='D', scale='naturalMinor',
+        parts=[
+            dict(track=0, name='🎵 Chrigel — Tin Whistle', role='whistle', config={**WHISTLE, 'volume': 0.5, 'pan': 0.15, 'reverbSend': 0.3}),
+            dict(track=1, name='🎻 Meri — Fiddle', role='fiddle', config={**VIOLIN, 'volume': 0.45, 'pan': -0.2, 'reverbSend': 0.3}),
+            # Written an octave below the chanter's range (F4–G5)
+            dict(track=2, name='🎶 Sevan — Bagpipes', role='pipes', transpose=12, config={**BAGPIPE, 'volume': 0.35, 'pan': 0.3, 'reverbSend': 0.25}),
+            dict(track=3, name='🎻 Anna — Hurdy-Gurdy', role='hurdy', config={**HURDY_GURDY, 'volume': 0.45, 'pan': -0.3, 'reverbSend': 0.25}),
+            dict(track=4, name='🤘 Ivo', role='guitar', config={'pan': -0.45}),
+            dict(track=5, name='🤘 Siméon', role='guitar', config={'pan': 0.45}),
+            dict(track=7, name='🎸 Rafi — Bass', role='bass'),
+            dict(track=6, name='🥁 Merlin — Drums', role='drums'),
+        ],
+    ),
 }
 
 # Playlist order of every song file in src/app/data/songs (hand-written ones are not rebuilt from recipes).
@@ -350,6 +371,8 @@ PLAYLIST_ORDER = [
     'last-resort', 'eye-of-the-tiger', 'the-final-countdown',
     # video games
     'megalovania',
+    # folk metal
+    'inis-mona',
     # indie / acoustic
     'stolen-dance',
 ]
