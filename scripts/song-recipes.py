@@ -9,7 +9,7 @@ A part maps one source track to app tracks:
   role 'drums'   → General MIDI drums onto the app kit
   role 'bass' | anything else → one track; `config` overrides instrument, sample set, volume, pan, sends.
   Other part options: transpose, channel (MIDI), pm (force palm-muted samples), roots_only (lowest note of each chord,
-  e.g. to derive a bass line), loose_power (play any chord holding root + 5th as that power chord), from_q (start partway in, in quarter notes), keep_above / keep_below / drop_below (pitch
+  e.g. to derive a bass line), loose_power (play any chord holding root + 5th as that power chord), from_q / until_q (start partway in / stop early, in quarter notes), keep_above / keep_below / drop_below (pitch
   filters), max_len (cap note length in steps), pedal (MIDI piano without pedal data: notes ring to the next bar line).
   Recipe option bake_tempo: write a MIDI file's ritardandos / fermatas into the note positions (the song has one bpm).
 Sources are listed in docs/song-sources.md.
@@ -346,6 +346,21 @@ RECIPES = {
                  config={**PIANO, 'volume': 0.25, 'reverbSend': 0.4}),
         ],
     ),
+    'rush-e': dict(
+        name='Rush E', artist='Sheet Music Boss',
+        source='MIDI of the piano piece (rush_e_real.mid in github.com/mateenismeti5-cmd/Midi-Auto-Player), bars 1–41: '
+               'the accelerating E rush, the theme, the middle section and the theme in octaves, up to the "impossible" part '
+               '(thousands of notes a second, more than a browser piano can play). Every tempo change is baked in',
+        file='Sheet Music Boss - Rush E.mid', bars=[(1, 41)], rootNote='A', scale='harmonicMinor',
+        bake_tempo=True, stepsPerBeat=24, humanize=0,  # ~21 ms steps keep the accelerating rhythm at 120 bpm
+        parts=[
+            dict(track=2, name='🎹 Right Hand', role='piano', config={**PIANO, 'volume': 0.35, 'pan': 0.1, 'reverbSend': 0.2}),
+            dict(track=1, name='🎹 Left Hand', role='piano', config={**PIANO, 'volume': 0.3, 'pan': -0.1, 'reverbSend': 0.2}),
+            # The top layer's last bar is a joke chord of every key from C-1 to G9: stop just before it (78.75 s)
+            dict(track=3, name='🎹 High E Rush', role='piano', until_q=157.5,
+                 config={**PIANO, 'volume': 0.3, 'pan': 0.2, 'reverbSend': 0.25}),
+        ],
+    ),
     'inis-mona': dict(
         name='Inis Mona', artist='Eluveitie',
         source='Guitar Pro transcription (gprotab.net), bars 1–30 with repeats played: intro, verse, pre-chorus and chorus. '
@@ -370,7 +385,7 @@ RECIPES = {
 # Playlist categories, in order, and the order of every song file in src/app/data/songs inside them
 # (hand-written ones are not rebuilt from recipes). The app shows one category at a time.
 PLAYLIST = {
-    'Main': ['fur-elise', 'canon-in-d', 'canon-in-d-2-0', 'river-flows-in-you'],
+    'Main': ['fur-elise', 'canon-in-d', 'canon-in-d-2-0', 'river-flows-in-you', 'rush-e'],
     'Draft': [
         'happy-birthday-to-you',
         # Metallica

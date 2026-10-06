@@ -20,6 +20,9 @@ What the built-in songs and the song converter can and can't do, and why. Source
 - **Source files are not in the repo.** Rebuilding a song needs its source file downloaded locally (see
   docs/song-sources.md).
 - **Segments, not full songs.** Each song is a 20–60 second segment (intro, main riff, chorus or solo).
+- **Rush E stops before its "impossible" part.** That part plays thousands of notes a second, more than a
+  browser piano can play. The segment ends where the theme in octaves lands on A, just before a joke chord of
+  every key from C-1 to G9.
 
 ## Instruments only
 

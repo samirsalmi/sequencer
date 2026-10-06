@@ -456,6 +456,8 @@ def build(recipe_id, r):
                 e.pm = True
         if part.get('from_q') is not None:  # this part only plays from that point of the segment (in quarter notes)
             evs = [e for e in evs if e.start >= part['from_q']]
+        if part.get('until_q') is not None:  # ...and/or stops before that point
+            evs = [e for e in evs if e.start < part['until_q']]
         if part.get('roots_only'):  # derive a bass line from a chord part: keep the lowest note of each onset
             lowest = {}
             for e in evs:

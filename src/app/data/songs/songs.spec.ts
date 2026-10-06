@@ -15,7 +15,7 @@ describe('built-in songs', () => {
   it('every song is in a playlist category, with the Main songs first', () => {
     for (const meta of SONG_CATALOG) expect(['Main', 'Draft'], meta.name).toContain(meta.category);
     expect(SONG_CATALOG.filter(s => s.category === 'Main').map(s => s.name))
-      .toEqual(['Für Elise (Easy Piano)', 'Canon in D', 'Canon in D 2.0', 'River Flows in You']);
+      .toEqual(['Für Elise (Easy Piano)', 'Canon in D', 'Canon in D 2.0', 'River Flows in You', 'Rush E']);
     expect(PLAYLIST_PRESETS[0].category).toBe('Main'); // the app opens on the first song, under Main
   });
 

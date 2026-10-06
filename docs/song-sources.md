@@ -39,6 +39,7 @@ Songs are instruments only: no vocal track is ever used (the converter refuses t
 | Megalovania — Toby Fox (Undertale), rock arrangement | [AlexMi-Ha/GuitarTabs](https://github.com/AlexMi-Ha/GuitarTabs) | `Toby Fox - Megalovania.gp5` | `Toby Fox - Megalovania.gp5` | 1–24 |
 | Inis Mona — Eluveitie | [gprotab.net](https://gprotab.net) (downloaded by hand) | Inis Mona Guitar Pro tab | `Eluveitie - Inis Mona.gp5` | 1–5 + 2–5 + 6–15 + 12–15 + 16–29 + 26–30 (repeats played) |
 | River Flows in You — Yiruma (이루마) | [bitmidi.com](https://bitmidi.com/yiruma-rivers-flow-in-you-mid) | Yiruma - Rivers Flow In You MIDI | `Yiruma - River Flows in You.mid` | 1–44 (the whole piece) |
+| Rush E — Sheet Music Boss | [mateenismeti5-cmd/Midi-Auto-Player](https://github.com/mateenismeti5-cmd/Midi-Auto-Player) | `rush_e_real.mid` | `Sheet Music Boss - Rush E.mid` | 1–41 (tempo changes baked in) |
 
 ## Hand-written songs (no transcription)
 
