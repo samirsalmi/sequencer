@@ -13,6 +13,8 @@ export const SONG_CATALOG: SongMeta[] = [
     load: () => import('./river-flows-in-you').then(m => m.RIVER_FLOWS_IN_YOU) },
   { name: "Rush E", artist: "Sheet Music Boss", bpm: 120, stepsPerBeat: 24, stepResolution: "16th", timeSignature: "4/4", stepCount: 3800, scale: "harmonicMinor", rootNote: "A", trackCount: 3, category: "Main",
     load: () => import('./rush-e').then(m => m.RUSH_E) },
+  { name: "Eighty-Eight Hearts", artist: "Loomin Original", bpm: 126, stepsPerBeat: 8, stepResolution: "32nd", timeSignature: "4/4", stepCount: 1376, scale: "harmonicMinor", rootNote: "A", trackCount: 6, category: "Main",
+    load: () => import('./eighty-eight-hearts').then(m => m.EIGHTY_EIGHT_HEARTS) },
   { name: "Happy Birthday to You", artist: "Traditional", bpm: 90, stepsPerBeat: 4, stepResolution: "16th", timeSignature: "3/4", stepCount: 216, scale: "major", rootNote: "C", trackCount: 8, category: "Draft",
     load: () => import('./happy-birthday-to-you').then(m => m.HAPPY_BIRTHDAY_TO_YOU) },
   { name: "Enter Sandman", artist: "Metallica", bpm: 124, stepsPerBeat: 4, stepResolution: "16th", timeSignature: "4/4", stepCount: 576, scale: "naturalMinor", rootNote: "E", trackCount: 11, category: "Draft",

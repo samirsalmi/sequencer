@@ -385,7 +385,7 @@ RECIPES = {
 # Playlist categories, in order, and the order of every song file in src/app/data/songs inside them
 # (hand-written ones are not rebuilt from recipes). The app shows one category at a time.
 PLAYLIST = {
-    'Main': ['fur-elise', 'canon-in-d', 'canon-in-d-2-0', 'river-flows-in-you', 'rush-e'],
+    'Main': ['fur-elise', 'canon-in-d', 'canon-in-d-2-0', 'river-flows-in-you', 'rush-e', 'eighty-eight-hearts'],
     'Draft': [
         'happy-birthday-to-you',
         # Metallica

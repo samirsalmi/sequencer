@@ -49,3 +49,4 @@ Songs are instruments only: no vocal track is ever used (the converter refuses t
 | Happy Birthday to You | Hand-written; arranged in two verses with a key change. |
 | Afterlife — Avenged Sevenfold | Hand-written intro; no transcription was found, so the drum part is composed to follow the rhythm guitars. |
 | Stolen Dance — Milky Chance | Hand-written intro riff; no transcription was found. |
+| Eighty-Eight Hearts — Loomin Original | An original piece, impossible for two hands; the score is `scripts/compose-eighty-eight-hearts.py`. |
